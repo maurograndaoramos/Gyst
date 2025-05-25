@@ -9,14 +9,57 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"form">) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [generalError, setGeneralError] = useState('');
+
+  const validateEmail = (value: string) => {
+    // Simple email regex
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setEmailError('');
+    setPasswordError('');
+    setGeneralError('');
+    let valid = true;
+
+    if (!email) {
+      setEmailError('Email is required.');
+      valid = false;
+    } else if (!validateEmail(email)) {
+      setEmailError('Please enter a valid email address.');
+      valid = false;
+    }
+
+    if (!password) {
+      setPasswordError('Password is required.');
+      valid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      valid = false;
+    }
+
+    if (!valid) {
+      return;
+    }
+
     setLoading(true);
-    // TODO: Add authentication logic here
-    setTimeout(() => setLoading(false), 1000); // Simulate async auth
+    // Simulate async auth and error
+    setTimeout(() => {
+      setLoading(false);
+      // Simulate wrong credentials
+      if (email !== "user@example.com" || password !== "password123") {
+        setGeneralError("Invalid email or password.");
+        setPasswordError(" ");
+      }
+    }, 1000);
   };
 
   return (
@@ -30,7 +73,25 @@ export function LoginForm({
       <div className="grid gap-6">
         <div className="grid gap-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="m@example.com" required />
+          <Input
+            id="email"
+            type="email"
+            placeholder="m@example.com"
+            value={email}
+            onChange={e => {
+              setEmail(e.target.value);
+              setEmailError('');
+              setGeneralError('');
+            }}
+            required
+            aria-invalid={!!emailError}
+            aria-describedby="email-error"
+          />
+          {emailError && (
+            <span id="email-error" className="text-red-500 text-xs mt-1">
+              {emailError}
+            </span>
+          )}
         </div>
         <div className="grid gap-2">
           <div className="flex items-center">
@@ -42,7 +103,24 @@ export function LoginForm({
               Forgot your password?
             </a>
           </div>
-          <Input id="password" type="password" required />
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={e => {
+              setPassword(e.target.value);
+              setPasswordError('');
+              setGeneralError('');
+            }}
+            required
+            aria-invalid={!!passwordError}
+            aria-describedby="password-error"
+          />
+          {passwordError && (
+            <span id="password-error" className="text-red-500 text-xs mt-1">
+              {passwordError}
+            </span>
+          )}
           <div className="flex items-center gap-2 mt-2">
             <input
               id="rememberMe"
@@ -53,6 +131,11 @@ export function LoginForm({
             />
             <Label htmlFor="rememberMe">Remember me</Label>
           </div>
+          {generalError && (
+            <span className="text-red-500 text-xs mt-2 block text-center">
+              {generalError}
+            </span>
+          )}
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Loading..." : "Login"}
