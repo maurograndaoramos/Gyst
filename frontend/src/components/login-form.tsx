@@ -1,3 +1,5 @@
+'use client'
+import React, { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,6 +9,7 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"form">) {
+  const [rememberMe, setRememberMe] = useState(false);
   return (
     <form className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-2 text-center">
@@ -31,6 +34,16 @@ export function LoginForm({
             </a>
           </div>
           <Input id="password" type="password" required />
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              id="rememberMe"
+              type="checkbox"
+              className="accent-primary"
+              checked={rememberMe}
+              onChange={() => setRememberMe(!rememberMe)}
+            />
+            <Label htmlFor="rememberMe">Remember me</Label>
+          </div>
         </div>
         <Button type="submit" className="w-full">
           Login
