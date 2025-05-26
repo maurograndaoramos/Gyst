@@ -17,10 +17,10 @@ export default function LoginForm({
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
-
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState('Weak');
+  const [showPasswordStrength, setShowPasswordStrength] = useState(false);
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
     uppercase: false,
@@ -55,8 +55,6 @@ export default function LoginForm({
     // Simple email regex
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   };
-
-
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -168,11 +166,14 @@ export default function LoginForm({
             value={password}
             onChange={e => {
               setPassword(e.target.value);
-              setPassword(e.target.value);
               setPasswordError('');
               setGeneralError('');
               evaluatePasswordStrength(e.target.value);
-              setGeneralError('');
+              setShowPasswordStrength(true);
+            }}
+            onFocus={() => setShowPasswordStrength(true)}
+            onBlur={() => {
+              if (!password) setShowPasswordStrength(false);
             }}
             required
             aria-invalid={!!passwordError}
@@ -183,28 +184,70 @@ export default function LoginForm({
               {passwordError}
             </span>
           )}
-          <div className="mt-2">
-            <div className={`text-sm font-medium ${passwordStrength === 'Weak' ? 'text-red-500' : passwordStrength === 'Moderate' ? 'text-yellow-500' : 'text-green-500'}`}>
-              Strength: {passwordStrength}
+          {showPasswordStrength && (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-300 ${
+                      passwordStrength === 'Weak' ? 'w-1/3 bg-red-500' : 
+                      passwordStrength === 'Moderate' ? 'w-2/3 bg-yellow-500' : 
+                      'w-full bg-green-500'
+                    }`}
+                  />
+                </div>
+                <span className={`text-xs font-medium ${
+                  passwordStrength === 'Weak' ? 'text-red-500' : 
+                  passwordStrength === 'Moderate' ? 'text-yellow-500' : 
+                  'text-green-500'
+                }`}>
+                  {passwordStrength}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className={`size-1.5 rounded-full ${
+                    passwordRequirements.length ? 'bg-green-500' : 'bg-muted'
+                  }`} />
+                  <span className={passwordRequirements.length ? 'text-green-500' : 'text-muted-foreground'}>
+                    8+ characters
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`size-1.5 rounded-full ${
+                    passwordRequirements.uppercase ? 'bg-green-500' : 'bg-muted'
+                  }`} />
+                  <span className={passwordRequirements.uppercase ? 'text-green-500' : 'text-muted-foreground'}>
+                    Uppercase
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`size-1.5 rounded-full ${
+                    passwordRequirements.lowercase ? 'bg-green-500' : 'bg-muted'
+                  }`} />
+                  <span className={passwordRequirements.lowercase ? 'text-green-500' : 'text-muted-foreground'}>
+                    Lowercase
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`size-1.5 rounded-full ${
+                    passwordRequirements.number ? 'bg-green-500' : 'bg-muted'
+                  }`} />
+                  <span className={passwordRequirements.number ? 'text-green-500' : 'text-muted-foreground'}>
+                    Number
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`size-1.5 rounded-full ${
+                    passwordRequirements.specialChar ? 'bg-green-500' : 'bg-muted'
+                  }`} />
+                  <span className={passwordRequirements.specialChar ? 'text-green-500' : 'text-muted-foreground'}>
+                    Special char
+                  </span>
+                </div>
+              </div>
             </div>
-            <ul className="text-xs mt-1 space-y-1">
-              <li className={passwordRequirements.length ? 'text-green-500' : 'text-red-500'}>
-                At least 8 characters
-              </li>
-              <li className={passwordRequirements.uppercase ? 'text-green-500' : 'text-red-500'}>
-                At least one uppercase letter
-              </li>
-              <li className={passwordRequirements.lowercase ? 'text-green-500' : 'text-red-500'}>
-                At least one lowercase letter
-              </li>
-              <li className={passwordRequirements.number ? 'text-green-500' : 'text-red-500'}>
-                At least one number
-              </li>
-              <li className={passwordRequirements.specialChar ? 'text-green-500' : 'text-red-500'}>
-                At least one special character
-              </li>
-            </ul>
-          </div>
+          )}
         </div>
         <div className="grid gap-2">
           <div className="flex items-center">
