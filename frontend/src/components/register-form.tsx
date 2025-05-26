@@ -10,8 +10,9 @@ export default function LoginForm({
   ...props
 }: React.ComponentPropsWithoutRef<"form">) {
   const [email, setEmail] = useState('');
+const [selectedCompany, setSelectedCompany] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [emailError, setEmailError] = useState('');
@@ -71,6 +72,28 @@ export default function LoginForm({
         </p>
       </div>
       <div className="grid gap-6">
+  <div className="grid gap-2">
+    <Label htmlFor="company">Select Company</Label>
+    <select
+      id="company"
+      className="border rounded-md p-2"
+      value={selectedCompany}
+      onChange={(e) => setSelectedCompany(e.target.value)}
+      required
+    >
+      <option value="" disabled>Select a company</option>
+      <option value="Company A">Company A</option>
+      <option value="Company B">Company B</option>
+      <option value="Company C">Company C</option>
+      <option value="Company D">Company D</option>
+      <option value="Company E">Company E</option>
+      <option value="Company F">Company F</option>
+      <option value="Company G">Company G</option>
+      <option value="Company H">Company H</option>
+      <option value="Company I">Company I</option>
+      <option value="Company J">Company J</option>
+    </select>
+  </div>
         <div className="grid gap-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -121,16 +144,19 @@ export default function LoginForm({
               {passwordError}
             </span>
           )}
-          <div className="flex items-center gap-2 mt-2">
-            <input
-              id="rememberMe"
-              type="checkbox"
-              className="accent-primary"
-              checked={rememberMe}
-              onChange={() => setRememberMe(!rememberMe)}
-            />
-            <Label htmlFor="rememberMe">Remember me</Label>
-          </div>
+<div className="flex items-center gap-2 mt-2">
+  <input
+    id="acceptTerms"
+    type="checkbox"
+    className="accent-primary"
+    checked={acceptTerms}
+    onChange={() => setAcceptTerms(!acceptTerms)}
+    required
+    aria-invalid={!acceptTerms}
+    aria-describedby="terms-error"
+  />
+  <Label htmlFor="acceptTerms">Accept Terms and Conditions</Label>
+</div>
           {generalError && (
             <span className="text-red-500 text-xs mt-2 block text-center">
               {generalError}
