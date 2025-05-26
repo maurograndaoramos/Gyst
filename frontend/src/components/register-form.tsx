@@ -131,6 +131,7 @@ const [selectedCompany, setSelectedCompany] = useState('');
           <Input
             id="password"
             type="password"
+            placeholder="Enter your password"
             value={password}
             onChange={e => {
               setPassword(e.target.value);
@@ -154,6 +155,7 @@ const [selectedCompany, setSelectedCompany] = useState('');
           <Input
             id="confirmPassword"
             type="password"
+            placeholder="Confirm your password"
             value={confirmPassword}
             onChange={e => {
               setConfirmPassword(e.target.value);
