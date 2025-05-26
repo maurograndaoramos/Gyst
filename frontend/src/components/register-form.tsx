@@ -10,20 +10,45 @@ export default function LoginForm({
   ...props
 }: React.ComponentPropsWithoutRef<"form">) {
   const [email, setEmail] = useState('');
-const [selectedCompany, setSelectedCompany] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [password, setPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const [usernameError, setUsernameError] = useState('');
   const [emailError, setEmailError] = useState('');
+
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
 
   const validateEmail = (value: string) => {
     // Simple email regex
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  };
+
+  const mockDatabaseCheck = (value: string, type: "username" | "email") => {
+    const mockDatabase = {
+      username: ["testuser", "admin"],
+      email: ["user@example.com", "admin@example.com"]
+    };
+    return mockDatabase[type].includes(value);
+  };
+
+  const handleUsernameChange = (value: string) => {
+    if (mockDatabaseCheck(value, "username")) {
+      setUsernameError("Username is already in use.");
+    } else {
+      setUsernameError("");
+    }
+  };
+
+  const handleEmailChange = (value: string) => {
+    if (mockDatabaseCheck(value, "email")) {
+      setEmailError("Email is already in use.");
+    } else {
+      setEmailError("");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -105,13 +130,30 @@ const [selectedCompany, setSelectedCompany] = useState('');
         <div className="grid gap-2">
           <Label htmlFor="email">Email</Label>
           <Input
+            id="username"
+            type="text"
+            placeholder="Enter your username"
+            onChange={e => handleUsernameChange(e.target.value)}
+            aria-invalid={!!usernameError}
+            aria-describedby="username-error"
+          />
+          {usernameError && (
+            <span id="username-error" className="text-red-500 text-xs mt-1">
+              {usernameError}
+            </span>
+          )}
+        </div>
+        <div className="grid gap-2">
+          <Input
             id="email"
             type="email"
             placeholder="m@example.com"
             value={email}
             onChange={e => {
               setEmail(e.target.value);
+              setEmail(e.target.value);
               setEmailError('');
+              handleEmailChange(e.target.value);
               setGeneralError('');
             }}
             required
