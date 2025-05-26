@@ -13,6 +13,8 @@ export default function LoginForm({
 const [selectedCompany, setSelectedCompany] = useState('');
   const [password, setPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const [emailError, setEmailError] = useState('');
@@ -47,7 +49,13 @@ const [selectedCompany, setSelectedCompany] = useState('');
       valid = false;
     }
 
+    if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match.');
+      valid = false;
+    }
+
     if (!valid) {
+      setConfirmPasswordError('');
       return;
     }
 
@@ -136,6 +144,29 @@ const [selectedCompany, setSelectedCompany] = useState('');
           {passwordError && (
             <span id="password-error" className="text-red-500 text-xs mt-1">
               {passwordError}
+            </span>
+          )}
+        </div>
+        <div className="grid gap-2">
+          <div className="flex items-center">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+          </div>
+          <Input
+            id="confirmPassword"
+            type="password"
+            value={confirmPassword}
+            onChange={e => {
+              setConfirmPassword(e.target.value);
+              setConfirmPasswordError('');
+              setGeneralError('');
+            }}
+            required
+            aria-invalid={!!confirmPasswordError}
+            aria-describedby="confirm-password-error"
+          />
+          {confirmPasswordError && (
+            <span id="confirm-password-error" className="text-red-500 text-xs mt-1">
+              {confirmPasswordError}
             </span>
           )}
 <div className="flex items-center gap-2 mt-2">
