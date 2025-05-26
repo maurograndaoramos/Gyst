@@ -11,6 +11,7 @@ export default function LoginForm({
 }: React.ComponentPropsWithoutRef<"form">) {
   const [email, setEmail] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [password, setPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,6 +35,19 @@ export default function LoginForm({
     number: false,
     specialChar: false,
   });
+
+  const companies = [
+    "Company A",
+    "Company B",
+    "Company C",
+    "Company D",
+    "Company E",
+    "Company F",
+    "Company G",
+    "Company H",
+    "Company I",
+    "Company J"
+  ];
 
   const evaluatePasswordStrength = (password: string) => {
     const requirements = {
@@ -122,28 +136,62 @@ export default function LoginForm({
         </p>
       </div>
       <div className="grid gap-6">
-  <div className="grid gap-2">
-    <Label htmlFor="company">Select Company</Label>
-    <select
-      id="company"
-      className="border rounded-md p-2"
-      value={selectedCompany}
-      onChange={(e) => setSelectedCompany(e.target.value)}
-      required
-    >
-      <option value="" disabled>Select a company</option>
-      <option value="Company A">Company A</option>
-      <option value="Company B">Company B</option>
-      <option value="Company C">Company C</option>
-      <option value="Company D">Company D</option>
-      <option value="Company E">Company E</option>
-      <option value="Company F">Company F</option>
-      <option value="Company G">Company G</option>
-      <option value="Company H">Company H</option>
-      <option value="Company I">Company I</option>
-      <option value="Company J">Company J</option>
-    </select>
-  </div>
+        <div className="grid gap-2">
+          <Label htmlFor="company">Select Company</Label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
+              className="flex w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <span className={selectedCompany ? "text-foreground" : "text-muted-foreground"}>
+                {selectedCompany || "Select a company"}
+              </span>
+              <svg
+                className={`size-4 transition-transform duration-200 ${
+                  showCompanyDropdown ? "rotate-180" : ""
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            <div
+              className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md transition-all duration-200 ${
+                showCompanyDropdown
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2 pointer-events-none"
+              }`}
+            >
+              <div className="max-h-[200px] overflow-y-auto p-1">
+                {companies.map((company) => (
+                  <button
+                    key={company}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCompany(company);
+                      setShowCompanyDropdown(false);
+                    }}
+                    className={`w-full rounded-sm px-2 py-1.5 text-sm transition-colors ${
+                      selectedCompany === company
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                  >
+                    {company}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -339,19 +387,19 @@ export default function LoginForm({
               {confirmPasswordError}
             </span>
           )}
-<div className="flex items-center gap-2 mt-2">
-  <input
-    id="acceptTerms"
-    type="checkbox"
-    className="accent-primary"
-    checked={acceptTerms}
-    onChange={() => setAcceptTerms(!acceptTerms)}
-    required
-    aria-invalid={!acceptTerms}
-    aria-describedby="terms-error"
-  />
-  <Label htmlFor="acceptTerms">Accept Terms and Conditions</Label>
-</div>
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              id="acceptTerms"
+              type="checkbox"
+              className="accent-primary"
+              checked={acceptTerms}
+              onChange={() => setAcceptTerms(!acceptTerms)}
+              required
+              aria-invalid={!acceptTerms}
+              aria-describedby="terms-error"
+            />
+            <Label htmlFor="acceptTerms">Accept Terms and Conditions</Label>
+          </div>
           {generalError && (
             <span className="text-red-500 text-xs mt-2 block text-center">
               {generalError}
