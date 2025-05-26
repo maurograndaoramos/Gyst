@@ -184,70 +184,82 @@ export default function LoginForm({
               {passwordError}
             </span>
           )}
-          {showPasswordStrength && (
-            <div className="mt-2 space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-                  <div 
-                    className={`h-full transition-all duration-300 ${
-                      passwordStrength === 'Weak' ? 'w-1/3 bg-red-500' : 
-                      passwordStrength === 'Moderate' ? 'w-2/3 bg-yellow-500' : 
-                      'w-full bg-green-500'
-                    }`}
-                  />
-                </div>
-                <span className={`text-xs font-medium ${
-                  passwordStrength === 'Weak' ? 'text-red-500' : 
-                  passwordStrength === 'Moderate' ? 'text-yellow-500' : 
-                  'text-green-500'
+          <div className={`mt-2 space-y-2 transition-all duration-300 ease-in-out ${
+            showPasswordStrength 
+              ? 'opacity-100 translate-y-0 max-h-[200px]' 
+              : 'opacity-0 -translate-y-2 max-h-0 overflow-hidden'
+          }`}>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-300 ${
+                    passwordStrength === 'Weak' ? 'w-1/3 bg-red-500' : 
+                    passwordStrength === 'Moderate' ? 'w-2/3 bg-yellow-500' : 
+                    'w-full bg-green-500'
+                  }`}
+                />
+              </div>
+              <span className={`text-xs font-medium ${
+                passwordStrength === 'Weak' ? 'text-red-500' : 
+                passwordStrength === 'Moderate' ? 'text-yellow-500' : 
+                'text-green-500'
+              }`}>
+                {passwordStrength}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  passwordRequirements.length ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  passwordRequirements.length ? 'text-green-500' : 'text-muted-foreground'
                 }`}>
-                  {passwordStrength}
+                  8+ characters
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className={`size-1.5 rounded-full ${
-                    passwordRequirements.length ? 'bg-green-500' : 'bg-muted'
-                  }`} />
-                  <span className={passwordRequirements.length ? 'text-green-500' : 'text-muted-foreground'}>
-                    8+ characters
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`size-1.5 rounded-full ${
-                    passwordRequirements.uppercase ? 'bg-green-500' : 'bg-muted'
-                  }`} />
-                  <span className={passwordRequirements.uppercase ? 'text-green-500' : 'text-muted-foreground'}>
-                    Uppercase
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`size-1.5 rounded-full ${
-                    passwordRequirements.lowercase ? 'bg-green-500' : 'bg-muted'
-                  }`} />
-                  <span className={passwordRequirements.lowercase ? 'text-green-500' : 'text-muted-foreground'}>
-                    Lowercase
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`size-1.5 rounded-full ${
-                    passwordRequirements.number ? 'bg-green-500' : 'bg-muted'
-                  }`} />
-                  <span className={passwordRequirements.number ? 'text-green-500' : 'text-muted-foreground'}>
-                    Number
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`size-1.5 rounded-full ${
-                    passwordRequirements.specialChar ? 'bg-green-500' : 'bg-muted'
-                  }`} />
-                  <span className={passwordRequirements.specialChar ? 'text-green-500' : 'text-muted-foreground'}>
-                    Special char
-                  </span>
-                </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  passwordRequirements.uppercase ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  passwordRequirements.uppercase ? 'text-green-500' : 'text-muted-foreground'
+                }`}>
+                  Uppercase
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  passwordRequirements.lowercase ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  passwordRequirements.lowercase ? 'text-green-500' : 'text-muted-foreground'
+                }`}>
+                  Lowercase
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  passwordRequirements.number ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  passwordRequirements.number ? 'text-green-500' : 'text-muted-foreground'
+                }`}>
+                  Number
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  passwordRequirements.specialChar ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  passwordRequirements.specialChar ? 'text-green-500' : 'text-muted-foreground'
+                }`}>
+                  Special char
+                </span>
               </div>
             </div>
-          )}
+          </div>
         </div>
         <div className="grid gap-2">
           <div className="flex items-center">
