@@ -10,6 +10,7 @@ export const users = sqliteTable("user", {
   emailVerified: integer("emailVerified", { mode: "timestamp_ms" }),
   image: text("image"),
   password: text("password"), // For credentials auth
+  organizationId: text("organizationId"), // Organization association for multi-tenancy
 })
 
 export const accounts = sqliteTable("account", {
@@ -78,3 +79,63 @@ export const authenticators = sqliteTable(
     }),
   ]
 )
+
+// Example business tables that require organization filtering
+export const projects = sqliteTable("project", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  organizationId: text("organizationId").notNull(), // Required for organization filtering
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  createdBy: text("createdBy")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+})
+
+export const tasks = sqliteTable("task", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  organizationId: text("organizationId").notNull(), // Required for organization filtering
+  projectId: text("projectId")
+    .references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").$type<'todo' | 'in_progress' | 'done'>().notNull().default('todo'),
+  priority: text("priority").$type<'low' | 'medium' | 'high'>().default('medium'),
+  assignedTo: text("assignedTo")
+    .references(() => users.id, { onDelete: "set null" }),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  createdBy: text("createdBy")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+})
+
+export const documents = sqliteTable("document", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  organizationId: text("organizationId").notNull(), // Required for organization filtering
+  projectId: text("projectId")
+    .references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  content: text("content"),
+  filePath: text("filePath"),
+  mimeType: text("mimeType"),
+  size: integer("size"),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  createdBy: text("createdBy")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+})
