@@ -21,6 +21,12 @@ export default function LoginForm({
   const [generalError, setGeneralError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState('Weak');
   const [showPasswordStrength, setShowPasswordStrength] = useState(false);
+  const [showEmailValidation, setShowEmailValidation] = useState(false);
+  const [emailRequirements, setEmailRequirements] = useState({
+    format: false,
+    domain: false,
+    noSpaces: false,
+  });
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
     uppercase: false,
@@ -52,8 +58,14 @@ export default function LoginForm({
   };
 
   const validateEmail = (value: string) => {
-    // Simple email regex
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const requirements = {
+      format: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      domain: /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(value),
+      noSpaces: !/\s/.test(value),
+    };
+    
+    setEmailRequirements(requirements);
+    return requirements.format && requirements.domain && requirements.noSpaces;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -141,9 +153,14 @@ export default function LoginForm({
             value={email}
             onChange={e => {
               setEmail(e.target.value);
-              setEmail(e.target.value);
               setEmailError('');
               setGeneralError('');
+              validateEmail(e.target.value);
+              setShowEmailValidation(true);
+            }}
+            onFocus={() => setShowEmailValidation(true)}
+            onBlur={() => {
+              if (!email) setShowEmailValidation(false);
             }}
             required
             aria-invalid={!!emailError}
@@ -154,6 +171,44 @@ export default function LoginForm({
               {emailError}
             </span>
           )}
+          <div className={`mt-2 space-y-2 transition-all duration-300 ease-in-out ${
+            showEmailValidation 
+              ? 'opacity-100 translate-y-0 max-h-[200px]' 
+              : 'opacity-0 -translate-y-2 max-h-0 overflow-hidden'
+          }`}>
+            <div className="grid gap-1 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  emailRequirements.format ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  emailRequirements.format ? 'text-green-500' : 'text-muted-foreground'
+                }`}>
+                  Valid email format (example@domain.com)
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  emailRequirements.domain ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  emailRequirements.domain ? 'text-green-500' : 'text-muted-foreground'
+                }`}>
+                  Valid domain extension (.com, .org, etc.)
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`size-1.5 rounded-full transition-colors duration-300 ${
+                  emailRequirements.noSpaces ? 'bg-green-500' : 'bg-muted'
+                }`} />
+                <span className={`transition-colors duration-300 ${
+                  emailRequirements.noSpaces ? 'text-green-500' : 'text-muted-foreground'
+                }`}>
+                  No spaces allowed
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="grid gap-2">
           <div className="flex items-center">
