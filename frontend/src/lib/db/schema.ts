@@ -86,3 +86,20 @@ export const authenticators = sqliteTable(
     }),
   ]
 )
+
+export const organizations = sqliteTable("organization", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull().unique(),
+  owner_id: text("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  created_at: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});

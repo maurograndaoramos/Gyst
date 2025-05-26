@@ -66,24 +66,30 @@ A dedicated Python service hosting CrewAI framework and its RAG tools. It perfor
 
 ### Database (SQLite)
 
-A single gyst.sqlite file is used for storing all structured data with comprehensive schema for users, organizations, documents, and tags.
+A single gyst.sqlite file is used for storing all structured data. The schema is managed using Drizzle ORM, which also handles database migrations.
 
 - **Access:** Only the Next.js application interacts directly with the gyst.sqlite file. The Python service receives necessary data from Next.js via API parameters and fetches relevant document content using file paths provided by Next.js.
 
 - **Key Tables:**
-  - **users**: Stores user information, including role (Admin, User) and organization affiliation.
+  - **users**: Stores user information. Note: `role` and direct `organization_id` are not in the current `schema.ts` but are conceptual.
     - id (string, primary key)
-    - username (string, unique)
-    - email (string, unique)
-    - password_hash (string)
-    - role (string, e.g., 'Admin', 'User')
-    - organization_id (foreign key to organizations table)
-    - created_at (timestamp)
+    - name (string)
+    - username (string)
+    - email (string, unique, not null)
+    - password (string) // For credentials auth
+    - emailVerified (timestamp)
+    - image (string)
+    - created_at (timestamp, not null)
+    - updated_at (timestamp, not null)
 
   - **organizations**: Stores organization information for multi-tenancy.
     - id (string, primary key)
-    - name (string)
-    - created_at (timestamp)
+    - name (string, unique, not null)
+    - owner_id (string, not null, foreign key to users.id, onDelete: 'cascade')
+    - created_at (timestamp, not null)
+    - updated_at (timestamp, not null)
+
+  - **(Other NextAuth V5 tables like accounts, sessions, verificationTokens, authenticators exist for authentication purposes and are linked to the users table.)**
 
   - **documents**: Stores document metadata. Linked to organizations for data isolation.
     - id (string, primary key)
@@ -107,6 +113,8 @@ A single gyst.sqlite file is used for storing all structured data with comprehen
     - tag_id (foreign key)
     - confidence (float, AI confidence score 0.0-1.0)
     - created_at (timestamp)
+
+- **Seeding**: A `frontend/src/lib/db/seed.ts` script is available to populate the database with initial data for development and testing.
 
 ### AI Service (CrewAI & RAG Tools)
 
