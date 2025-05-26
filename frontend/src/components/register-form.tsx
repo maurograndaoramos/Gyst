@@ -20,6 +20,36 @@ export default function LoginForm({
 
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState('Weak');
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    specialChar: false,
+  });
+
+  const evaluatePasswordStrength = (password: string) => {
+    const requirements = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+    };
+
+    setPasswordRequirements(requirements);
+
+    const metRequirements = Object.values(requirements).filter(Boolean).length;
+
+    if (metRequirements <= 2) {
+      setPasswordStrength('Weak');
+    } else if (metRequirements === 3 || metRequirements === 4) {
+      setPasswordStrength('Moderate');
+    } else {
+      setPasswordStrength('Strong');
+    }
+  };
 
   const validateEmail = (value: string) => {
     // Simple email regex
@@ -138,7 +168,10 @@ export default function LoginForm({
             value={password}
             onChange={e => {
               setPassword(e.target.value);
+              setPassword(e.target.value);
               setPasswordError('');
+              setGeneralError('');
+              evaluatePasswordStrength(e.target.value);
               setGeneralError('');
             }}
             required
@@ -150,6 +183,28 @@ export default function LoginForm({
               {passwordError}
             </span>
           )}
+          <div className="mt-2">
+            <div className={`text-sm font-medium ${passwordStrength === 'Weak' ? 'text-red-500' : passwordStrength === 'Moderate' ? 'text-yellow-500' : 'text-green-500'}`}>
+              Strength: {passwordStrength}
+            </div>
+            <ul className="text-xs mt-1 space-y-1">
+              <li className={passwordRequirements.length ? 'text-green-500' : 'text-red-500'}>
+                At least 8 characters
+              </li>
+              <li className={passwordRequirements.uppercase ? 'text-green-500' : 'text-red-500'}>
+                At least one uppercase letter
+              </li>
+              <li className={passwordRequirements.lowercase ? 'text-green-500' : 'text-red-500'}>
+                At least one lowercase letter
+              </li>
+              <li className={passwordRequirements.number ? 'text-green-500' : 'text-red-500'}>
+                At least one number
+              </li>
+              <li className={passwordRequirements.specialChar ? 'text-green-500' : 'text-red-500'}>
+                At least one special character
+              </li>
+            </ul>
+          </div>
         </div>
         <div className="grid gap-2">
           <div className="flex items-center">
