@@ -117,3 +117,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Role-based UI styles for disabled states */
+  .upload-button-disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  
+  .upload-button-disabled:hover {
+    @apply opacity-50;
+    transform: none;
+  }
+  
+  .upload-button-enabled {
+    @apply transition-all duration-200 hover:shadow-md;
+  }
+  
+  .upload-restricted {
+    @apply opacity-75;
+  }
+  
+  /* Visual feedback for unauthorized features */
+  .feature-disabled {
+    @apply opacity-60 pointer-events-none cursor-not-allowed;
+  }
+  
+  .feature-disabled::after {
+    content: '';
+    @apply absolute inset-0 bg-gray-100 bg-opacity-50 rounded;
+  }
+}
