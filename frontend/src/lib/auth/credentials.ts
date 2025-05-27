@@ -3,9 +3,11 @@ import { compare, hash } from "bcryptjs"
 import { db } from "@/lib/db"
 import { users } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import type { UserRole } from "@/types/next-auth"
 
 export interface CustomUser extends User {
-  role?: string
+  role: UserRole
+  organizationId?: string
 }
 
 export async function authenticateUser(
@@ -42,7 +44,8 @@ export async function authenticateUser(
       email: foundUser.email!,
       name: foundUser.name,
       image: foundUser.image,
-      role: "user", // You can add role logic here
+      role: "user" as UserRole, // Default role, can be enhanced with database lookup
+      organizationId: "", // Default organization, can be enhanced with database lookup
     }
   } catch (error) {
     console.error("Authentication error:", error)
@@ -92,7 +95,8 @@ export async function createUser(userData: {
       id: user.id,
       email: user.email!,
       name: user.name,
-      role: "user",
+      role: "user" as UserRole,
+      organizationId: "", // Default organization
     }
   } catch (error) {
     console.error("User creation error:", error)
