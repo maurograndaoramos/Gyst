@@ -207,3 +207,35 @@ This flow describes how users access and view documents from their organization.
 - Database connection issues → Graceful degradation with user notification
 - Python service unavailable → Queue requests or show maintenance message
 - File corruption → Error handling with file re-upload option
+
+## Database Seeding Flow (Development/Testing)
+
+This flow describes how initial data can be populated into the database for development or testing purposes using the `seed.ts` script.
+
+1.  **Developer Action (Manual)**: A developer decides to seed the database. This is typically done during initial setup or when a clean dataset is needed for testing.
+
+2.  **Execute Seed Script (CLI)**: The developer runs the seed script from the command line within the `frontend` directory.
+    *   Example command: `npm run db:seed` (or `pnpm db:seed`, `yarn db:seed`)
+
+3.  **Script Initialization (`seed.ts`)**:
+    *   The `frontend/src/lib/db/seed.ts` script is executed by `tsx` (or a similar TypeScript runner).
+    *   It imports the Drizzle database client (`db`) from `./index` and the table schemas (`users`, `organizations`, etc.) from `./schema`.
+
+4.  **Optional: Clear Existing Data (`seed.ts`)**:
+    *   The script may contain commented-out or conditional logic to delete existing data from tables (e.g., `await db.delete(organizations); await db.delete(users);`). This step is used with caution to ensure a fresh seed.
+
+5.  **Data Insertion (`seed.ts` → SQLite DB)**:
+    *   The script uses the Drizzle client (`db.insert()`) to add new rows to the specified tables (e.g., `users`, `organizations`).
+    *   It defines the values for each field according to the table schema.
+    *   Example:
+        *   Insert sample users into the `users` table.
+        *   Insert sample organizations into the `organizations` table, linking them to the newly created users via `owner_id`.
+    *   The `.returning()` method might be used to get the IDs of newly inserted records, which can then be used for subsequent related inserts (e.g., creating an organization owned by a just-created user).
+
+6.  **Logging (`seed.ts`)**:
+    *   The script logs its progress to the console (e.g., "Seeding database...", "Seeded users: ...", "Database seeded successfully!").
+    *   Error messages are logged if any part of the seeding process fails.
+
+7.  **Script Completion (`seed.ts`)**:
+    *   The script finishes execution. If any errors occurred, it exits with a non-zero status code.
+    *   The database now contains the seeded data.

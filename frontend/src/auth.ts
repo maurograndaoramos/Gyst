@@ -5,9 +5,12 @@ import Credentials from "next-auth/providers/credentials"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { db } from "@/lib/db"
 import { authenticateUser, type CustomUser } from "@/lib/auth/credentials"
+import type { UserRole } from "@/types/next-auth"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db),
+  
+  secret: process.env.AUTH_SECRET,
   
   session: {
     strategy: "jwt",
@@ -54,21 +57,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   pages: {
-    signIn: "/auth/signin",
+    signIn: "/login",
     error: "/auth/error",
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // On initial sign in, add user data to token
       if (user) {
-        token.role = (user as CustomUser).role
+        token.userId = user.id
+        token.role = (user as CustomUser).role || 'user'
+        token.organizationId = (user as CustomUser).organizationId || ''
       }
+
+      // Handle session update trigger
+      if (trigger === 'update' && session) {
+        token.role = session.role || token.role
+        token.organizationId = session.organizationId || token.organizationId
+      }
+
       return token
     },
 
     async session({ session, token }) {
-      if (token.role) {
-        (session.user as CustomUser).role = token.role as string
+      // Add user data from token to session
+      if (session.user && token.userId) {
+        session.user.id = String(token.userId)
+        session.user.role = (token.role as UserRole) || 'user'
+        session.user.organizationId = (token.organizationId as string) ?? ''
       }
       return session
     },
@@ -90,6 +106,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signOut() {
       console.log("User signed out")
     },
+
+    // Removed session event logging to prevent excessive logs
   },
 
   debug: process.env.NODE_ENV === "development",

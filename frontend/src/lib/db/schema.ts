@@ -1,16 +1,19 @@
 import { integer, sqliteTable, text, primaryKey } from "drizzle-orm/sqlite-core"
 import type { AdapterAccountType } from "next-auth/adapters"
+import { randomUUID } from "crypto"
 
 export const users = sqliteTable("user", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
+    .$defaultFn(() => randomUUID()),
   name: text("name"),
   username: text("username"),
   email: text("email").notNull().unique(),
   emailVerified: integer("emailVerified", { mode: "timestamp_ms" }),
   image: text("image"),
   password: text("password"), // For credentials auth
+  organizationId: text("organizationId")
+    .references(() => organizations.id, { onDelete: "cascade" }),
   created_at: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -86,3 +89,82 @@ export const authenticators = sqliteTable(
     }),
   ]
 )
+
+// Define organizations table first as other tables will reference it
+export const organizations = sqliteTable("organization", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  name: text("name").notNull().unique(),
+  owner_id: text("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }), // Assuming owner_id refers to a user
+  created_at: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});
+
+// Example business tables that require organization filtering
+export const projects = sqliteTable("project", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  organizationId: text("organizationId")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }), // Added reference
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  createdBy: text("createdBy")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+})
+
+export const documents = sqliteTable("document", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  organizationId: text("organizationId")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }), // Added reference
+  projectId: text("projectId")
+    .references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  content: text("content"),
+  filePath: text("filePath"),
+  mimeType: text("mimeType"),
+  size: integer("size"),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date()),
+  createdBy: text("createdBy")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+})
+
+export const auditLogs = sqliteTable("audit_logs", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("userId") // Assuming this should also reference users.id
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  organizationId: text("organizationId")
+    .references(() => organizations.id, { onDelete: "set null" }), // Added reference, allows null
+  action: text("action").$type<'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'>().notNull(),
+  tableName: text("tableName").notNull(),
+  recordCount: integer("recordCount").notNull().default(0),
+  query: text("query").notNull(),
+  bypassUsed: integer("bypassUsed", { mode: "boolean" }).notNull().default(false),
+  success: integer("success", { mode: "boolean" }).notNull().default(true),
+  errorMessage: text("errorMessage"),
+  timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull()
+})

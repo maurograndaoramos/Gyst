@@ -154,11 +154,13 @@ The primary goal of the MVP is to establish the core architecture and deliver ke
 
 ### Database Schema Requirements
 
-- **Users Management**: Comprehensive user table with role and organization association
-- **Organization Isolation**: Organization table with proper foreign key relationships
-- **Document Metadata**: Detailed document storage with file paths and metadata
-- **Tag System**: Flexible tagging system with confidence scores and relationships
-- **Performance**: Proper indexing for search and filtering operations
+- **Users Management**: Comprehensive user table (`users`) as defined by NextAuth V5 and application needs.
+- **Organization Isolation**: Organization table (`organizations`) with an `owner_id` foreign key linking to the `users` table to ensure data segregation and define ownership.
+- **Document Metadata**: Detailed document storage (`documents`) with file paths, metadata, and links to the `organizations` table.
+- **Tag System**: Flexible tagging system (`tags`, `document_tags`) with confidence scores and relationships.
+- **Performance**: Proper indexing for search and filtering operations.
+- **Migrations**: Use of Drizzle Kit for schema migrations.
+- **Seeding**: Availability of a script (`seed.ts`) for populating development data.
 
 ### Security Requirements
 
