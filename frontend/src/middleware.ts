@@ -1,31 +1,36 @@
-import { auth } from "@/auth"
+import { middlewareAuth } from "@/lib/auth/middleware-auth"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 // Define protected routes
 const protectedRoutes = ["/dashboard", "/profile", "/admin"]
-const authRoutes = ["/auth/signin", "/auth/signup"]
+const authRoutes = ["/login", "/register"]
+
+// Function to check if a path matches the organization dashboard pattern
+const isOrgDashboardRoute = (pathname: string): boolean => {
+  return /^\/[^\/]+\/dashboard/.test(pathname)
+}
 
 export async function middleware(request: NextRequest) {
-  const session = await auth()
+  const session = await middlewareAuth()
   const { pathname } = request.nextUrl
 
   // Check if it's an auth route
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
   
   // Check if it's a protected route
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route)) || isOrgDashboardRoute(pathname)
 
   // If user is authenticated and trying to access auth routes, redirect to home
   if (session && isAuthRoute) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 
-  // If user is not authenticated and trying to access protected routes, redirect to signin
+  // If user is not authenticated and trying to access protected routes, redirect to login
   if (!session && isProtectedRoute) {
-    const signInUrl = new URL("/auth/signin", request.url)
-    signInUrl.searchParams.set("callbackUrl", request.url)
-    return NextResponse.redirect(signInUrl)
+    const loginUrl = new URL("/login", request.url)
+    loginUrl.searchParams.set("callbackUrl", request.url)
+    return NextResponse.redirect(loginUrl)
   }
 
   return NextResponse.next()

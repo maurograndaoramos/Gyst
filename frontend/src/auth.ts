@@ -10,6 +10,8 @@ import type { UserRole } from "@/types/next-auth"
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db),
   
+  secret: process.env.AUTH_SECRET,
+  
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -80,9 +82,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       // Add user data from token to session
       if (session.user && token.userId) {
-        session.user.id = token.userId as string
+        session.user.id = String(token.userId)
         session.user.role = (token.role as UserRole) || 'user'
-        session.user.organizationId = (token.organizationId as string) || ''
+        session.user.organizationId = (token.organizationId as string) ?? ''
       }
       return session
     },
@@ -105,10 +107,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       console.log("User signed out")
     },
 
-    async session({ session }) {
-      // Log session activity for audit purposes
-      console.log("Session active:", { userId: session.user?.id, timestamp: new Date().toISOString() })
-    },
+    // Removed session event logging to prevent excessive logs
   },
 
   debug: process.env.NODE_ENV === "development",

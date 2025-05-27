@@ -83,10 +83,11 @@ export async function createUser(userData: {
         email: userData.email,
         name: userData.name,
         password: hashedPassword,
+        organizationId: null, // Set to null for now since we don't have organizations
       })
       .returning()
 
-    if (!newUser.length) {
+    if (!Array.isArray(newUser) || !newUser.length) {
       return null
     }
 

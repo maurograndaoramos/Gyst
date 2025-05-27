@@ -87,6 +87,7 @@ export default function LoginForm({
     setEmailError('');
     setPasswordError('');
     setGeneralError('');
+    setConfirmPasswordError('');
     let valid = true;
 
     if (!email) {
@@ -110,21 +111,63 @@ export default function LoginForm({
       valid = false;
     }
 
+    if (!acceptTerms) {
+      setGeneralError('You must accept the terms and conditions.');
+      valid = false;
+    }
+
     if (!valid) {
-      setConfirmPasswordError('');
       return;
     }
 
     setLoading(true);
-    // Simulate async auth and error
-    setTimeout(() => {
-      setLoading(false);
-      // Simulate wrong credentials
-      if (email !== "user@example.com" || password !== "password123") {
-        setGeneralError("Invalid email or password.");
-        setPasswordError(" ");
+    
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          name: email.split('@')[0], // Use email prefix as name
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGeneralError(data.error || 'Registration failed');
+        return;
       }
-    }, 1000);
+
+      // Registration successful - automatically sign in and redirect to dashboard
+      setGeneralError('');
+      
+      // Automatically sign in the user
+      const { signIn } = await import('next-auth/react');
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.ok) {
+        // Redirect to organization dashboard (for now use a placeholder org ID)
+        window.location.href = '/org-placeholder/dashboard';
+      } else {
+        // If auto-login fails, redirect to login with success message
+        alert('Registration successful! Please log in.');
+        window.location.href = '/login';
+      }
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      setGeneralError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -407,7 +450,7 @@ export default function LoginForm({
           )}
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Loading..." : "Login"}
+          {loading ? "Creating Account..." : "Register"}
         </Button>
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-background px-2 text-muted-foreground">
