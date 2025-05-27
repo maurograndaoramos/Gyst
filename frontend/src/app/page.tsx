@@ -6,7 +6,7 @@ import { UserHeader } from '@/components/user-header'
 import { UploadSection } from '@/components/upload-section'
 
 export default function Dashboard() {
-  const { isLoading, isAuthenticated, user, role } = useAuth()
+  const { isLoading, isAuthenticated, role } = useAuth()
 
   if (isLoading) {
     return (

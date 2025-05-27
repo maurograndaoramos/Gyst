@@ -51,15 +51,29 @@ export function LoginForm({
     }
 
     setLoading(true);
-    // Simulate async auth and error
-    setTimeout(() => {
-      setLoading(false);
-      // Simulate wrong credentials
-      if (email !== "user@example.com" || password !== "password123") {
-        setGeneralError("Invalid email or password.");
-        setPasswordError(" ");
+    
+    try {
+      // Use NextAuth to sign in with credentials
+      const { signIn } = await import('next-auth/react');
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.ok) {
+        // Login successful - redirect to organization dashboard
+        window.location.href = '/org-placeholder/dashboard';
+      } else {
+        // Login failed
+        setGeneralError('Invalid email or password.');
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Login error:', error);
+      setGeneralError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -15,21 +15,21 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.9.1",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^11.10.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.1",
     "drizzle-orm": "^0.43.1",
+    "lucide-react": "^0.511.0",
     "next": "15.1.8",
     "next-auth": "^5.0.0-beta.28",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@radix-ui/react-label": "^2.1.7",
-    "@radix-ui/react-slot": "^1.2.3",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.511.0",
     "react-hot-toast": "^2.5.2",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7"
@@ -43,6 +43,7 @@
     "eslint-config-next": "15.1.8",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.19.4",
     "typescript": "^5"
   }
 }

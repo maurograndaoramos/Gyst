@@ -1,10 +1,11 @@
 import { integer, sqliteTable, text, primaryKey } from "drizzle-orm/sqlite-core"
 import type { AdapterAccountType } from "next-auth/adapters"
+import { randomUUID } from "crypto"
 
 export const users = sqliteTable("user", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
+    .$defaultFn(() => randomUUID()),
   name: text("name"),
   username: text("username"),
   email: text("email").notNull().unique(),
@@ -93,7 +94,7 @@ export const authenticators = sqliteTable(
 export const organizations = sqliteTable("organization", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
+    .$defaultFn(() => randomUUID()),
   name: text("name").notNull().unique(),
   owner_id: text("owner_id")
     .notNull()

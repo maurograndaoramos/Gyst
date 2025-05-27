@@ -14,7 +14,7 @@ import {
 export const projectService = {
   // Get all projects for the current organization
   async getAll() {
-    return withOrganizationContext(async (organizationId, _userId) => {
+    return withOrganizationContext(async (organizationId, _) => {
       if (organizationId === 'bypass') {
         // System-level bypass operation
         return db.select().from(projects).orderBy(desc(projects.createdAt))
@@ -29,7 +29,7 @@ export const projectService = {
 
   // Get a specific project by ID (with organization filtering)
   async getById(id: string) {
-    return withOrganizationContext(async (organizationId, _userId) => {
+    return withOrganizationContext(async (organizationId, _) => {
       if (organizationId === 'bypass') {
         const result = await db.select().from(projects).where(eq(projects.id, id))
         return result[0] || null
@@ -47,7 +47,7 @@ export const projectService = {
 
   // Create a new project (organizationId will be auto-injected)
   async create(data: { name: string; description?: string; createdBy: string }) {
-    return withOrganizationContext(async (organizationId, _userId) => {
+    return withOrganizationContext(async (organizationId, _) => {
       if (organizationId === 'bypass') {
         // For bypass operations, organization ID should be explicitly provided
         throw new OrganizationContextError(
@@ -63,7 +63,7 @@ export const projectService = {
 
   // Update a project (only within current organization)
   async update(id: string, data: Partial<{ name: string; description: string }>) {
-    return withOrganizationContext(async (organizationId, _userId) => {
+    return withOrganizationContext(async (organizationId, _) => {
       if (organizationId === 'bypass') {
         return db.update(projects)
           .set({ ...data, updatedAt: new Date() })
@@ -83,7 +83,7 @@ export const projectService = {
 
   // Delete a project (only within current organization)
   async delete(id: string) {
-    return withOrganizationContext(async (organizationId, _userId) => {
+    return withOrganizationContext(async (organizationId, _) => {
       if (organizationId === 'bypass') {
         return db.delete(projects).where(eq(projects.id, id))
       }

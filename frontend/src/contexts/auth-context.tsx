@@ -61,7 +61,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Handle session expiry
   useEffect(() => {
-    if (status === 'unauthenticated' && window.location.pathname !== '/login') {
+    if (status === 'unauthenticated' && 
+        window.location.pathname !== '/login' && 
+        window.location.pathname !== '/register') {
       // Session expired or user logged out
       router.push('/login')
     }

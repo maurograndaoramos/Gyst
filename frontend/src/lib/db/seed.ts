@@ -1,5 +1,6 @@
 import { db } from './index'; // Assuming your Drizzle client is exported from here
 import { users, organizations } from './schema'; // Import your table schemas
+import { hashPassword } from '../auth/credentials'; // Import password hashing function
 
 async function main() {
   console.log('Seeding database...');
@@ -9,18 +10,23 @@ async function main() {
   // await db.delete(users);
   // console.log('Cleared existing data.');
 
-  // Example: Seed Users
+  // Hash passwords for test users
+  const alicePassword = await hashPassword('password123');
+  const bobPassword = await hashPassword('password123');
+
+  // Example: Seed Users with passwords
   const user1 = await db.insert(users).values({
     name: 'Alice Wonderland',
     username: 'alice',
     email: 'alice@example.com',
-    // password: 'hashed_password_here', // If using credentials
+    password: alicePassword,
   }).returning({ id: users.id });
 
   const user2 = await db.insert(users).values({
     name: 'Bob The Builder',
     username: 'bob',
     email: 'bob@example.com',
+    password: bobPassword,
   }).returning({ id: users.id });
 
   console.log('Seeded users:', user1, user2);
