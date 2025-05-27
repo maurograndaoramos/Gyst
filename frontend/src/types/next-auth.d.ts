@@ -11,7 +11,7 @@ declare module "next-auth" {
   }
 
   interface User extends DefaultUser {
-    organizationId?: string
+    organizationId?: string | null
   }
 }
 

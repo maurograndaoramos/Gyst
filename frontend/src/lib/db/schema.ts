@@ -97,28 +97,6 @@ export const projects = sqliteTable("project", {
     .references(() => users.id, { onDelete: "cascade" }),
 })
 
-export const tasks = sqliteTable("task", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  organizationId: text("organizationId").notNull(), // Required for organization filtering
-  projectId: text("projectId")
-    .references(() => projects.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  description: text("description"),
-  status: text("status").$type<'todo' | 'in_progress' | 'done'>().notNull().default('todo'),
-  priority: text("priority").$type<'low' | 'medium' | 'high'>().default('medium'),
-  assignedTo: text("assignedTo")
-    .references(() => users.id, { onDelete: "set null" }),
-  createdAt: integer("createdAt", { mode: "timestamp_ms" })
-    .$defaultFn(() => new Date()),
-  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
-    .$defaultFn(() => new Date()),
-  createdBy: text("createdBy")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-})
-
 export const documents = sqliteTable("document", {
   id: text("id")
     .primaryKey()
@@ -138,4 +116,20 @@ export const documents = sqliteTable("document", {
   createdBy: text("createdBy")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+})
+
+export const auditLogs = sqliteTable("audit_logs", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("userId").notNull(),
+  organizationId: text("organizationId"),
+  action: text("action").$type<'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'>().notNull(),
+  tableName: text("tableName").notNull(),
+  recordCount: integer("recordCount").notNull().default(0),
+  query: text("query").notNull(),
+  bypassUsed: integer("bypassUsed", { mode: "boolean" }).notNull().default(false),
+  success: integer("success", { mode: "boolean" }).notNull().default(true),
+  errorMessage: text("errorMessage"),
+  timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull()
 })

@@ -1,7 +1,7 @@
 // Enhanced Documents API with RBAC and Organization Filtering
 import { NextRequest, NextResponse } from "next/server"
 import { documentService, handleOrganizationError } from "@/lib/services/data-access"
-import { requirePermission, hasPermission, canAccessUserResource } from "@/lib/middleware/rbac"
+import { requirePermission } from "@/lib/middleware/rbac"
 import { OrganizationContextError } from "@/lib/middleware/organization-filter"
 
 export async function GET(request: NextRequest) {

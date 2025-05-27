@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
     const includeStats = url.searchParams.get('stats') !== 'false'
     const includeSecurity = url.searchParams.get('security') !== 'false'
     
-    const result: any = {}
+    const result: {
+      stats?: Awaited<ReturnType<typeof getAuditStats>>
+      security?: Awaited<ReturnType<typeof detectSuspiciousActivity>>
+    } = {}
     
     if (includeStats) {
       result.stats = await getAuditStats(context.organizationId)

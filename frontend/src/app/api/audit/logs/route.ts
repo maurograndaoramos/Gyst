@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Parse query parameters
-    const action = url.searchParams.get('action') as any
+    const action = url.searchParams.get('action') as 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | null
     const tableName = url.searchParams.get('tableName')
     const userId = url.searchParams.get('userId')
     const bypassUsed = url.searchParams.get('bypassUsed')

@@ -1,22 +1,20 @@
 // Simplified Data Access Layer with Organization Filtering
 import { eq, and, desc } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { projects, tasks, documents, users } from "@/lib/db/schema"
+import { projects, documents, users } from "@/lib/db/schema"
 import { 
   withOrganizationContext,
   addOrganizationFilter,
   addOrganizationToData,
   SecurityContext,
-  OrganizationContextError,
-  logDataAccess,
-  requiresOrganizationFilter
+  OrganizationContextError
 } from "@/lib/middleware/organization-filter"
 
 // Project operations with organization filtering
 export const projectService = {
   // Get all projects for the current organization
   async getAll() {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         // System-level bypass operation
         return db.select().from(projects).orderBy(desc(projects.createdAt))
@@ -31,7 +29,7 @@ export const projectService = {
 
   // Get a specific project by ID (with organization filtering)
   async getById(id: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         const result = await db.select().from(projects).where(eq(projects.id, id))
         return result[0] || null
@@ -49,7 +47,7 @@ export const projectService = {
 
   // Create a new project (organizationId will be auto-injected)
   async create(data: { name: string; description?: string; createdBy: string }) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         // For bypass operations, organization ID should be explicitly provided
         throw new OrganizationContextError(
@@ -65,7 +63,7 @@ export const projectService = {
 
   // Update a project (only within current organization)
   async update(id: string, data: Partial<{ name: string; description: string }>) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         return db.update(projects)
           .set({ ...data, updatedAt: new Date() })
@@ -85,7 +83,7 @@ export const projectService = {
 
   // Delete a project (only within current organization)
   async delete(id: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         return db.delete(projects).where(eq(projects.id, id))
       }
@@ -106,143 +104,16 @@ export const projectService = {
       requestedBy
     }
     
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (_organizationId, _userId) => {
       return db.select().from(projects).orderBy(desc(projects.createdAt))
     }, securityContext)
-  }
-}
-
-// Task operations with organization filtering
-export const taskService = {
-  async getAll(projectId?: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
-      if (organizationId === 'bypass') {
-        if (projectId) {
-          return db.select().from(tasks)
-            .where(eq(tasks.projectId, projectId))
-            .orderBy(desc(tasks.createdAt))
-        }
-        return db.select().from(tasks).orderBy(desc(tasks.createdAt))
-      }
-      
-      if (projectId) {
-        return db.select().from(tasks)
-          .where(and(
-            eq(tasks.projectId, projectId),
-            addOrganizationFilter(tasks, organizationId)
-          ))
-          .orderBy(desc(tasks.createdAt))
-      } else {
-        return db.select().from(tasks)
-          .where(addOrganizationFilter(tasks, organizationId))
-          .orderBy(desc(tasks.createdAt))
-      }
-    })
-  },
-
-  async getById(id: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
-      if (organizationId === 'bypass') {
-        const result = await db.select().from(tasks).where(eq(tasks.id, id))
-        return result[0] || null
-      }
-      
-      const result = await db.select()
-        .from(tasks)
-        .where(and(
-          eq(tasks.id, id),
-          addOrganizationFilter(tasks, organizationId)
-        ))
-      return result[0] || null
-    })
-  },
-
-  async create(data: {
-    projectId?: string
-    title: string
-    description?: string
-    status?: 'todo' | 'in_progress' | 'done'
-    priority?: 'low' | 'medium' | 'high'
-    assignedTo?: string
-    createdBy: string
-  }) {
-    return withOrganizationContext(async (organizationId, userId) => {
-      if (organizationId === 'bypass') {
-        throw new OrganizationContextError(
-          'Organization ID must be explicitly provided for bypass operations',
-          'BYPASS_REQUIRES_ORG'
-        )
-      }
-      
-      const taskData = addOrganizationToData(data, organizationId)
-      return db.insert(tasks).values(taskData).returning()
-    })
-  },
-
-  async update(id: string, data: Partial<{
-    title: string
-    description: string
-    status: 'todo' | 'in_progress' | 'done'
-    priority: 'low' | 'medium' | 'high'
-    assignedTo: string
-  }>) {
-    return withOrganizationContext(async (organizationId, userId) => {
-      if (organizationId === 'bypass') {
-        return db.update(tasks)
-          .set({ ...data, updatedAt: new Date() })
-          .where(eq(tasks.id, id))
-          .returning()
-      }
-      
-      return db.update(tasks)
-        .set({ ...data, updatedAt: new Date() })
-        .where(and(
-          eq(tasks.id, id),
-          addOrganizationFilter(tasks, organizationId)
-        ))
-        .returning()
-    })
-  },
-
-  async delete(id: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
-      if (organizationId === 'bypass') {
-        return db.delete(tasks).where(eq(tasks.id, id))
-      }
-      
-      return db.delete(tasks)
-        .where(and(
-          eq(tasks.id, id),
-          addOrganizationFilter(tasks, organizationId)
-        ))
-    })
-  },
-
-  // Get tasks assigned to a specific user (within organization)
-  async getByAssignee(userId: string) {
-    return withOrganizationContext(async (organizationId, currentUserId) => {
-      if (organizationId === 'bypass') {
-        return db.select()
-          .from(tasks)
-          .where(eq(tasks.assignedTo, userId))
-          .orderBy(desc(tasks.createdAt))
-      }
-      
-      return db.select()
-        .from(tasks)
-        .where(and(
-          eq(tasks.assignedTo, userId),
-          addOrganizationFilter(tasks, organizationId)
-        ))
-        .orderBy(desc(tasks.createdAt))
-    })
   }
 }
 
 // Document operations with organization filtering
 export const documentService = {
   async getAll(projectId?: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         if (projectId) {
           return db.select().from(documents)
@@ -268,7 +139,7 @@ export const documentService = {
   },
 
   async getById(id: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         const result = await db.select().from(documents).where(eq(documents.id, id))
         return result[0] || null
@@ -293,7 +164,7 @@ export const documentService = {
     size?: number
     createdBy: string
   }) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         throw new OrganizationContextError(
           'Organization ID must be explicitly provided for bypass operations',
@@ -313,7 +184,7 @@ export const documentService = {
     mimeType: string
     size: number
   }>) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         return db.update(documents)
           .set({ ...data, updatedAt: new Date() })
@@ -332,7 +203,7 @@ export const documentService = {
   },
 
   async delete(id: string) {
-    return withOrganizationContext(async (organizationId, userId) => {
+    return withOrganizationContext(async (organizationId, _userId) => {
       if (organizationId === 'bypass') {
         return db.delete(documents).where(eq(documents.id, id))
       }

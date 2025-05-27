@@ -274,6 +274,162 @@ export async function getAuditStats(organizationId?: string): Promise<{
 }
 
 /**
+ * Export audit logs in various formats
+ */
+export async function exportAuditLogs(
+  filters: AuditLogFilters = {},
+  format: 'json' | 'csv' = 'json'
+): Promise<string> {
+  const logs = await getAuditLogs(filters, 10000) // Large limit for export
+  
+  if (format === 'csv') {
+    // CSV header
+    let csv = 'ID,User ID,Organization ID,Action,Table Name,Record Count,Query,Bypass Used,Success,Error Message,Timestamp\n'
+    
+    // CSV rows
+    logs.forEach(log => {
+      const row = [
+        log.id,
+        log.userId,
+        log.organizationId || '',
+        log.action,
+        log.tableName,
+        log.recordCount,
+        `"${log.query.replace(/"/g, '""')}"`, // Escape quotes
+        log.bypassUsed,
+        log.success,
+        log.errorMessage || '',
+        log.timestamp.toISOString()
+      ].join(',')
+      csv += row + '\n'
+    })
+    
+    return csv
+  }
+  
+  return JSON.stringify(logs, null, 2)
+}
+
+/**
+ * Detect suspicious activity patterns
+ */
+export async function detectSuspiciousActivity(organizationId?: string): Promise<{
+  suspiciousPatterns: Array<{
+    type: string
+    description: string
+    severity: 'low' | 'medium' | 'high'
+    count: number
+    lastOccurrence: Date
+  }>
+  riskScore: number
+}> {
+  try {
+    const patterns: Array<{
+      type: string
+      description: string
+      severity: 'low' | 'medium' | 'high'
+      count: number
+      lastOccurrence: Date
+    }> = []
+    
+    let whereClause = '1=1'
+    const params: any[] = []
+    
+    if (organizationId) {
+      whereClause = 'organizationId = ?'
+      params.push(organizationId)
+    }
+    
+    // Check for excessive bypass usage
+    const bypassStmt = rawDb.prepare(`
+      SELECT COUNT(*) as count, MAX(timestamp) as latest 
+      FROM audit_logs 
+      WHERE ${whereClause} AND bypassUsed = 1 AND timestamp > ?
+    `)
+    const bypassResult = bypassStmt.get(...params, Date.now() - (24 * 60 * 60 * 1000)) as any
+    
+    if (bypassResult?.count > 10) {
+      patterns.push({
+        type: 'excessive_bypass',
+        description: `${bypassResult.count} bypass operations in last 24 hours`,
+        severity: bypassResult.count > 50 ? 'high' : 'medium',
+        count: bypassResult.count,
+        lastOccurrence: new Date(bypassResult.latest)
+      })
+    }
+    
+    // Check for high failure rates
+    const failureStmt = rawDb.prepare(`
+      SELECT COUNT(*) as failures, 
+             (SELECT COUNT(*) FROM audit_logs WHERE ${whereClause} AND timestamp > ?) as total
+      FROM audit_logs 
+      WHERE ${whereClause} AND success = 0 AND timestamp > ?
+    `)
+    const failureResult = failureStmt.get(...params, Date.now() - (60 * 60 * 1000), ...params, Date.now() - (60 * 60 * 1000)) as any
+    
+    if (failureResult?.total > 0) {
+      const failureRate = failureResult.failures / failureResult.total
+      if (failureRate > 0.3) {
+        patterns.push({
+          type: 'high_failure_rate',
+          description: `${Math.round(failureRate * 100)}% failure rate in last hour`,
+          severity: failureRate > 0.7 ? 'high' : 'medium',
+          count: failureResult.failures,
+          lastOccurrence: new Date()
+        })
+      }
+    }
+    
+    // Check for unusual user activity
+    const userActivityStmt = rawDb.prepare(`
+      SELECT userId, COUNT(*) as count
+      FROM audit_logs 
+      WHERE ${whereClause} AND timestamp > ?
+      GROUP BY userId
+      HAVING count > 100
+    `)
+    const userActivityResults = userActivityStmt.all(...params, Date.now() - (60 * 60 * 1000)) as any[]
+    
+    userActivityResults.forEach(result => {
+      patterns.push({
+        type: 'excessive_user_activity',
+        description: `User ${result.userId} performed ${result.count} operations in last hour`,
+        severity: result.count > 500 ? 'high' : 'medium',
+        count: result.count,
+        lastOccurrence: new Date()
+      })
+    })
+    
+    // Calculate risk score
+    let riskScore = 0
+    patterns.forEach(pattern => {
+      switch (pattern.severity) {
+        case 'high':
+          riskScore += 10
+          break
+        case 'medium':
+          riskScore += 5
+          break
+        case 'low':
+          riskScore += 1
+          break
+      }
+    })
+    
+    return {
+      suspiciousPatterns: patterns,
+      riskScore: Math.min(riskScore, 100) // Cap at 100
+    }
+  } catch (error) {
+    console.error('Failed to detect suspicious activity:', error)
+    return {
+      suspiciousPatterns: [],
+      riskScore: 0
+    }
+  }
+}
+
+/**
  * Clean up old audit logs (for maintenance)
  */
 export async function cleanupAuditLogs(daysToKeep: number = 90): Promise<number> {

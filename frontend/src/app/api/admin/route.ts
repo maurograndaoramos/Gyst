@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { projectService, handleOrganizationError, userService } from "@/lib/services/data-access"
 import { getAuditLogs, OrganizationContextError } from "@/lib/middleware/organization-filter"
-import { authOptions } from "@/lib/auth/config"
 import { auth } from "@/lib/auth/config"
 
 // Verify admin permissions (simplified - implement proper role checking)

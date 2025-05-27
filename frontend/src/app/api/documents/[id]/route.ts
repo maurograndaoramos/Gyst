@@ -6,11 +6,12 @@ import { OrganizationContextError } from "@/lib/middleware/organization-filter"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await requirePermission('documents:read')
     
+    const params = await context.params
     const document = await documentService.getById(params.id)
     
     if (!document) {
@@ -53,13 +54,15 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await requirePermission('documents:write')
     
     const body = await request.json()
     const { title, content, filePath, mimeType, size } = body
+    
+    const params = await context.params
     
     // First get the document to check ownership
     const existingDocument = await documentService.getById(params.id)
@@ -112,10 +115,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await requirePermission('documents:delete')
+    
+    const params = await context.params
     
     // First get the document to check ownership
     const existingDocument = await documentService.getById(params.id)
