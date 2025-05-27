@@ -6,11 +6,20 @@ export const users = sqliteTable("user", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name"),
-  email: text("email").unique(),
+  username: text("username"),
+  email: text("email").notNull().unique(),
   emailVerified: integer("emailVerified", { mode: "timestamp_ms" }),
   image: text("image"),
   password: text("password"), // For credentials auth
-  organizationId: text("organizationId"), // Organization association for multi-tenancy
+  organizationId: text("organizationId")
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  created_at: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
 })
 
 export const accounts = sqliteTable("account", {
@@ -80,12 +89,32 @@ export const authenticators = sqliteTable(
   ]
 )
 
+// Define organizations table first as other tables will reference it
+export const organizations = sqliteTable("organization", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull().unique(),
+  owner_id: text("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }), // Assuming owner_id refers to a user
+  created_at: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});
+
 // Example business tables that require organization filtering
 export const projects = sqliteTable("project", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  organizationId: text("organizationId").notNull(), // Required for organization filtering
+  organizationId: text("organizationId")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }), // Added reference
   name: text("name").notNull(),
   description: text("description"),
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
@@ -101,7 +130,9 @@ export const documents = sqliteTable("document", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  organizationId: text("organizationId").notNull(), // Required for organization filtering
+  organizationId: text("organizationId")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }), // Added reference
   projectId: text("projectId")
     .references(() => projects.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
@@ -122,8 +153,11 @@ export const auditLogs = sqliteTable("audit_logs", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId").notNull(),
-  organizationId: text("organizationId"),
+  userId: text("userId") // Assuming this should also reference users.id
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  organizationId: text("organizationId")
+    .references(() => organizations.id, { onDelete: "set null" }), // Added reference, allows null
   action: text("action").$type<'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'>().notNull(),
   tableName: text("tableName").notNull(),
   recordCount: integer("recordCount").notNull().default(0),
