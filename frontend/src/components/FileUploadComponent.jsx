@@ -55,17 +55,21 @@ const FileUploadComponent = () => {
   });
 
   return (
-    <div className="p-4 border-2 border-dashed rounded-md text-center">
+    <div className="w-screen h-screen flex flex-col items-center justify-center border-2 border-dashed rounded-md text-center bg-gray-50 box-border ">
       <div
         {...getRootProps()}
-        className={`p-6 border-2 rounded-md cursor-pointer ${
+        className={`p-6 border-2 rounded-md cursor-pointer border-dotted w-screen h-screen flex items-center justify-center ${
           isDragActive ? 'border-blue-500 bg-blue-100' : 'border-gray-300'
         }`}
       >
         <input {...getInputProps()} />
-        <p>Drag and drop files here, or click to select files</p>
-        <p className="text-sm text-gray-500">Accepted files: PDF, JPG, PNG, GIF</p>
-        <p className="text-sm text-gray-500">Max file size: 5MB per file</p>
+        <div>
+          <p className="text-lg font-semibold">Drop your files anywhere</p>
+          <div className="mt-2">
+            <p className="text-sm text-gray-600">Accepted files: PDF, JPG, PNG, GIF</p>
+            <p className="text-sm text-gray-600">Max file size: 5MB per file</p>
+        </div>
+        </div>
       </div>
       {errors.length > 0 && (
         <div className="mt-4 text-red-500">
