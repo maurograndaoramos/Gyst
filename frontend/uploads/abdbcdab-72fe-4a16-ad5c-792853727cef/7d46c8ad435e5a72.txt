@@ -1,0 +1,77 @@
+﻿Github Playbook
+A playbook is a “guide” that will help you understand how to proceed when in doubt and also serve as a point of reference whenever you need a refresh or reference.
+Please try to stick with the step by step as much as possible but if you think something needs to be done differently, feel free to bring it up! 💪
+Your workflow
+1. Starting Work
+* Pick up a card from the Kanban board (ensure it's in "Backlog").
+2. Branching Strategy
+* Base branch: DEV
+* Create a new branch from DEV with the following naming convention:
+
+   * dev/<kanban-card-id>/<feature-name>
+   * Example (Notion): dev/GYST9/login-bugfix
+   * Example (Trello): dev/123/login-bugfix
+3. Feature Development
+   * Work locally on your feature branch.
+   * Make frequent commits with clear messages.
+   * Push your branch regularly.
+   * Stick to one feature or bug per branch.
+
+4. Pre-PR Checklist
+      * ✔️ Lint your code
+      * ✔️ Run all relevant tests
+      * ✔️ Self-review the changes
+      * ✔️ Ensure no unrelated files are included (e.g. package-lock.json if unchanged)
+
+5. Creating a Pull Request
+         * Open a PR into DEV
+         * Use a clear title: Feature: [Short Description]
+         * Link the PR to the related Kanban card
+         * Use the PR template provided below
+         * Assign it to the project lead (currently: [Your Name])
+
+6. Merging
+            * Only the project lead will merge PRs.
+            * Once approved, merges will be handled manually to maintain consistency.
+
+7. Hotfixes
+               * Normally, hotfixes should also branch from DEV.
+               * If the issue exists in MAIN and requires immediate attention, branch from MAIN instead.
+               * No hard rule—use judgment based on the situation.
+8. Staying Updated
+               * Always pull from DEV before creating a PR to avoid conflicts and keep your branch updated.
+9. Tags & Releases
+               * Tags will be created when merging from DEV into MAIN.
+               * This happens only at specific points in the roadmap.
+               * Versioning Style:
+               * x.0.0: Major releases
+               * 0.x.0: Feature-level updates
+               * 0.0.x: Minor patches and upgrades
+               * As always, flexibility is key but the style above serves as the default convention.
+________________
+Pull Request Template
+________________
+
+
+### What does this PR do?
+Brief summary of the change.
+
+
+### Related Card
+[Insert Kanban Card Link or ID]
+
+
+### How was it tested?
+Describe manual or automated testing.
+
+
+### Screenshots (if applicable)
+[Attach screenshots or gifs]
+
+
+### Checklist
+- [✔️] Code is linted
+- [❌] All tests pass
+- [❌] No unrelated files included
+- [✔️] Ready for review
+________________

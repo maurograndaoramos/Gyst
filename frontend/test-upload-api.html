@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Test</title>
+</head>
+<body>
+    <h1>Document Upload Test</h1>
+    
+    <div>
+        <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx">
+        <button onclick="testUpload()">Upload</button>
+        <button onclick="getConfig()">Get Config</button>
+    </div>
+    
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+
+    <script>
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<p style="color: red;">Please select a file</p>';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            try {
+                resultDiv.innerHTML = '<p>Uploading...</p>';
+                
+                const response = await fetch('/api/documents/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <h3 style="color: green;">✅ Upload Successful!</h3>
+                        <p><strong>ID:</strong> ${data.data.id}</p>
+                        <p><strong>Original:</strong> ${data.data.originalFilename}</p>
+                        <p><strong>Size:</strong> ${data.data.size} bytes</p>
+                        <p><strong>Type:</strong> ${data.data.mimeType}</p>
+                        <p><strong>Path:</strong> ${data.data.filePath}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3 style="color: red;">❌ Upload Failed</h3>
+                        <p><strong>Error:</strong> ${data.error}</p>
+                        <p><strong>Code:</strong> ${data.code}</p>
+                        ${data.details?.errors ? '<p><strong>Details:</strong> ' + data.details.errors.join(', ') + '</p>' : ''}
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Network Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function getConfig() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const response = await fetch('/api/documents/upload');
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <h3>Upload Configuration:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
