@@ -141,12 +141,8 @@ export function UploadExample() {
                 <p className="font-semibold">❌ Upload Failed</p>
                 <p className="text-sm">Error: {result.error}</p>
                 <p className="text-sm">Code: {result.code}</p>
-                {result.details?.errors && (
-                  <ul className="text-sm list-disc list-inside mt-2">
-                    {result.details.errors.map((error, index) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
+                {result.details?.errors && result.details.errors.length > 0 && (
+                  <p className="text-sm">{result.details.errors[0]}</p>
                 )}
               </div>
             )}
