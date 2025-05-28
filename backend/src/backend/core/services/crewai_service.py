@@ -17,6 +17,7 @@ from ..config import get_settings
 from ..processing import get_document_tool_factory
 from ..selection import get_tag_based_selector
 from ..selection import get_agent_configurator
+from ..error_handling.circuit_breaker import get_circuit_breaker_manager, CircuitBreakerConfig
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -41,6 +42,17 @@ class DocumentAnalysisService:
         self.tool_factory = get_document_tool_factory()
         self.tag_selector = get_tag_based_selector(max_documents=5)
         self.agent_configurator = get_agent_configurator()
+        
+        # Initialize circuit breaker
+        circuit_manager = get_circuit_breaker_manager()
+        breaker_config = CircuitBreakerConfig(
+            failure_threshold=5,
+            recovery_timeout=60,
+            success_threshold=3,
+            timeout_seconds=120,  # Use 120 seconds as per requirements
+            rolling_window_seconds=300
+        )
+        self.circuit_breaker = circuit_manager.get_breaker("document_analysis", breaker_config)
         
         # Initialize legacy tools for backward compatibility
         self._init_tools()
@@ -131,6 +143,21 @@ class DocumentAnalysisService:
         Returns:
             AnalyzeDocumentResponse with tags and metadata
         """
+        # Use circuit breaker to wrap the actual analysis
+        return await self.circuit_breaker.call(
+            self._analyze_document_internal,
+            document_path=document_path,
+            max_tags=max_tags,
+            generate_summary=generate_summary
+        )
+    
+    async def _analyze_document_internal(
+        self,
+        document_path: str,
+        max_tags: int = 10,
+        generate_summary: bool = False
+    ) -> AnalyzeDocumentResponse:
+        """Internal implementation of document analysis."""
         start_time = time.time()
         request_id = str(uuid.uuid4())
         
