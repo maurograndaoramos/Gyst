@@ -61,6 +61,7 @@ export async function createUser(userData: {
   email: string
   name?: string
   password: string
+  organizationId?: string
 }): Promise<CustomUser | null> {
   try {
     // Check if user already exists
@@ -83,7 +84,7 @@ export async function createUser(userData: {
         email: userData.email,
         name: userData.name,
         password: hashedPassword,
-        organizationId: null, // Set to null for now since we don't have organizations
+        organizationId: userData.organizationId || null,
       })
       .returning()
 
@@ -97,7 +98,7 @@ export async function createUser(userData: {
       email: user.email!,
       name: user.name,
       role: "user" as UserRole,
-      organizationId: "", // Default organization
+      organizationId: user.organizationId || "",
     }
   } catch (error) {
     console.error("User creation error:", error)
