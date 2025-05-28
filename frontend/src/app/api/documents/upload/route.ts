@@ -8,9 +8,11 @@ import { FileStorageService } from '@/lib/utils/file-storage'
 import { db } from '@/lib/db'
 import { documents } from '@/lib/db/schema'
 import { MAX_FILE_SIZE, type UploadResponse } from '@/lib/types/upload'
+import { DocumentAnalysisService } from '@/lib/services/document-analysis-service'
 
 
 const fileStorage = new FileStorageService()
+const documentAnalysisService = new DocumentAnalysisService()
 
 export async function POST(request: NextRequest): Promise<NextResponse<UploadResponse>> {
   let tempFilePath: string | undefined
@@ -121,9 +123,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       projectId: projectId || null
     }).returning()
 
-    // 8. TODO: Trigger AI analysis (integrate with Python service)
-    // This would typically call the Python FastAPI service for document analysis
-    // await triggerDocumentAnalysis(document.id, fileStorage.getAbsolutePath(filePath))
+    // 8. Trigger AI analysis
+    try {
+      await documentAnalysisService.analyzeDocument(document.id);
+    } catch (analysisError) {
+      console.error('Document analysis failed:', analysisError);
+      // Continue with the upload response even if analysis fails
+      // The document is still usable, just without AI tags
+    }
 
     // 9. Success response
     return NextResponse.json({
