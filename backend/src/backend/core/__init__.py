@@ -1,1 +1,1 @@
-"""Core functionality package for backend."""
+"""Core module for backend services and configurations."""

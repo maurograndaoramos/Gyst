@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createUser } from "@/lib/auth/credentials"
+import { db } from "@/lib/db"
+import { organizations, users } from "@/lib/db/schema"
+import { randomUUID } from "crypto"
+import { eq } from "drizzle-orm"
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name } = await request.json()
+    const { email, password, name, company, role } = await request.json()
 
-    if (!email || !password) {
+    if (!email || !password || !company) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Email, password, and company are required" },
         { status: 400 }
       )
     }
@@ -19,7 +23,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = await createUser({ email, password, name })
+    // Create user first without organization
+    const user = await createUser({ 
+      email, 
+      password, 
+      name,
+      role: role || 'user', // Set role, defaulting to 'user' if not specified
+    })
 
     if (!user) {
       return NextResponse.json(
@@ -28,13 +38,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Create organization with user as owner
+    const organizationId = randomUUID()
+    const [organization] = await db
+      .insert(organizations)
+      .values({
+        id: organizationId,
+        name: company,
+        owner_id: user.id,
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .returning()
+
+    if (!organization) {
+      // Rollback user creation if organization creation fails
+      await db
+        .delete(users)
+        .where(eq(users.id, user.id))
+      
+      return NextResponse.json(
+        { error: "Failed to create organization" },
+        { status: 500 }
+      )
+    }
+
+    // Update user with organization ID
+    await db
+      .update(users)
+      .set({ 
+        organizationId: organization.id,
+        role: role || 'user', // Ensure role is set
+      })
+      .where(eq(users.id, user.id))
+
     return NextResponse.json(
       { 
-        message: "User created successfully",
+        message: "User and organization created successfully",
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
+          organizationId: organization.id,
+          role: role || 'user',
         }
       },
       { status: 201 }

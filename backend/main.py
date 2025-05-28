@@ -1,30 +1,64 @@
-"""Main module for the FastAPI application."""
+"""Main application entry point for the backend FastAPI service."""
+import logging
 import uvicorn
-import sys
-from pathlib import Path
-
-# Add src directory to the path so we can import our modules
-sys.path.insert(0, str(Path(__file__).parent))
-
 from fastapi import FastAPI
-from src.backend.api.routes import documents, chat, correlations
+from fastapi.middleware.cors import CORSMiddleware
 
-# Create the FastAPI application
+from src.backend.api.routes.documents import router as documents_router
+from src.backend.core.config import get_settings
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Get settings
+settings = get_settings()
+
+# Create FastAPI application
 app = FastAPI(
-    title="GYST API",
-    description="API for document analysis, chat, correlation, and AI capabilities",
-    version="0.1.0"
+    title=settings.api_title,
+    description=settings.api_description,
+    version=settings.api_version,
+    debug=settings.debug,
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(documents.router, prefix="/api", tags=["Documents"])
-app.include_router(chat.router, prefix="/api", tags=["Chat"])
-app.include_router(correlations.router, prefix="/api", tags=["Correlations"])
+app.include_router(documents_router, prefix="/api")
 
-@app.get("/", tags=["Health"])
+@app.get("/")
+async def root():
+    """Root endpoint with basic API information."""
+    return {
+        "message": "GYST Document Analysis API",
+        "version": settings.api_version,
+        "docs": "/docs",
+        "redoc": "/redoc"
+    }
+
+@app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok", "message": "API is running"}
+    return {
+        "status": "healthy",
+        "service": "gyst-backend",
+        "version": settings.api_version
+    }
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Run the application
+    uvicorn.run(
+        "main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+        log_level=settings.log_level.lower()
+    )

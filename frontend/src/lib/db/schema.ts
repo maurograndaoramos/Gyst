@@ -139,6 +139,7 @@ export const documents = sqliteTable("document", {
   title: text("title").notNull(),
   content: text("content"),
   filePath: text("filePath"),
+  originalFilename: text("originalFilename"),
   mimeType: text("mimeType"),
   size: integer("size"),
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
