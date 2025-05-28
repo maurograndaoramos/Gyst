@@ -1,54 +1,58 @@
-import { db } from './index'; // Assuming your Drizzle client is exported from here
-import { users, organizations } from './schema'; // Import your table schemas
-import { hashPassword } from '../auth/credentials'; // Import password hashing function
+import { db } from './index';
+import { hashPassword } from '../auth/credentials';
+import { sql } from 'drizzle-orm';
 
 async function main() {
   console.log('Seeding database...');
 
-  // Example: Clear existing data (optional, use with caution)
-  // await db.delete(organizations);
-  // await db.delete(users);
-  // console.log('Cleared existing data.');
+  try {
+    // Hash passwords for test users
+    const alicePassword = await hashPassword('password123');
+    const bobPassword = await hashPassword('password123');
 
-  // Hash passwords for test users
-  const alicePassword = await hashPassword('password123');
-  const bobPassword = await hashPassword('password123');
+    // Create test users directly with SQL to avoid schema mismatch
+    const user1Id = 'alice-test-id';
+    const user2Id = 'bob-test-id';
 
-  // Example: Seed Users with passwords
-  const user1 = await db.insert(users).values({
-    name: 'Alice Wonderland',
-    username: 'alice',
-    email: 'alice@example.com',
-    password: alicePassword,
-  }).returning({ id: users.id });
+    await db.run(sql`
+      INSERT INTO user (id, name, username, email, password, created_at, updated_at)
+      VALUES (${user1Id}, ${'Alice Wonderland'}, ${'alice'}, ${'alice@example.com'}, ${alicePassword}, ${Date.now()}, ${Date.now()})
+    `);
 
-  const user2 = await db.insert(users).values({
-    name: 'Bob The Builder',
-    username: 'bob',
-    email: 'bob@example.com',
-    password: bobPassword,
-  }).returning({ id: users.id });
+    await db.run(sql`
+      INSERT INTO user (id, name, username, email, password, created_at, updated_at)
+      VALUES (${user2Id}, ${'Bob The Builder'}, ${'bob'}, ${'bob@example.com'}, ${bobPassword}, ${Date.now()}, ${Date.now()})
+    `);
 
-  console.log('Seeded users:', user1, user2);
+    console.log('Seeded users: alice, bob');
 
-  // Example: Seed Organizations
-  if (user1 && user1[0]?.id) {
-    const org1 = await db.insert(organizations).values({
-      name: 'Wonderland Inc.',
-      owner_id: user1[0].id,
-    }).returning();
-    console.log('Seeded organization for Alice:', org1);
+    // Create organizations
+    const org1Id = 'wonderland-org-id';
+    const org2Id = 'builders-org-id';
+
+    await db.run(sql`
+      INSERT INTO organization (id, name, owner_id, created_at, updated_at)
+      VALUES (${org1Id}, ${'Wonderland Inc.'}, ${user1Id}, ${Date.now()}, ${Date.now()})
+    `);
+
+    await db.run(sql`
+      INSERT INTO organization (id, name, owner_id, created_at, updated_at)
+      VALUES (${org2Id}, ${'Builders Co.'}, ${user2Id}, ${Date.now()}, ${Date.now()})
+    `);
+
+    // Update users with organizationId
+    await db.run(sql`UPDATE user SET organizationId = ${org1Id} WHERE id = ${user1Id}`);
+    await db.run(sql`UPDATE user SET organizationId = ${org2Id} WHERE id = ${user2Id}`);
+
+    console.log('Seeded organizations and linked users');
+    console.log('Database seeded successfully!');
+    console.log('Test login: alice@example.com / password123');
+    console.log('Test login: bob@example.com / password123');
+
+  } catch (error) {
+    console.error('Error seeding database:', error);
+    throw error;
   }
-
-  if (user2 && user2[0]?.id) {
-    const org2 = await db.insert(organizations).values({
-      name: 'Builders Co.',
-      owner_id: user2[0].id,
-    }).returning();
-    console.log('Seeded organization for Bob:', org2);
-  }
-
-  console.log('Database seeded successfully!');
 }
 
 main()

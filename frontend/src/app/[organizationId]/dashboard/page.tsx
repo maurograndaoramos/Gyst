@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useEffect } from 'react'
+import { UploadExample } from '@/components/upload-example'
 
 export default function DashboardPage() {
   const params = useParams()
@@ -47,7 +48,7 @@ export default function DashboardPage() {
               </div>
               <div className="mt-8">
                 <p className="text-sm text-gray-500">
-                  This is a placeholder dashboard. The actual dashboard functionality will be implemented here.
+                  <UploadExample />
                 </p>
               </div>
             </div>
