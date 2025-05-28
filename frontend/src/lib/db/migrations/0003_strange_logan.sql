@@ -1,0 +1,1 @@
+ALTER TABLE `document` ADD `originalFilename` text;
