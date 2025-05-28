@@ -7,7 +7,7 @@ from enum import Enum
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..exceptions.analysis_exceptions import (
+from ...exceptions.analysis_exceptions import (
     DocumentAnalysisError,
     ToolInitializationError,
     FileAccessError,

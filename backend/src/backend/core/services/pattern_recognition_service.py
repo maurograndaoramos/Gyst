@@ -14,10 +14,10 @@ from crewai_tools import TXTSearchTool, PDFSearchTool, DOCXSearchTool, FileReadT
 import google.generativeai as genai
 from pydantic import BaseModel
 
-from ..schema.document_analysis import TagModel, AnalyzeDocumentResponse, AnalyzeDocumentErrorResponse
-from .document_tool_factory import DocumentToolFactory, get_document_tool_factory
-from .config import get_settings
-from ..exceptions.analysis_exceptions import AnalysisError, ManualInterventionRequired
+from ...schema.document_analysis import TagModel, AnalyzeDocumentResponse, AnalyzeDocumentErrorResponse
+from ..processing import DocumentToolFactory, get_document_tool_factory
+from ..config import get_settings
+from ...exceptions.analysis_exceptions import DocumentAnalysisError
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +316,7 @@ class PatternRecognitionService:
                 logger.error(f"Contextual analysis failed for {request.document_path}: {str(e)} (request_id: {request_id})")
                 
                 # Raise manual intervention required error
-                raise ManualInterventionRequired(
+                raise DocumentAnalysisError(
                     message=f"Document analysis failed and requires manual intervention: {str(e)}",
                     error_details=error_details,
                     request_id=request_id

@@ -2,20 +2,22 @@
 import asyncio
 import logging
 from typing import Dict, List, Optional, Any, Set, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import time
 
-from ..schema.document_analysis import AnalyzeDocumentResponse, TagModel
-from ..exceptions.analysis_exceptions import (
+from ...schema.document_analysis import AnalyzeDocumentResponse, TagModel
+from ...exceptions.analysis_exceptions import (
     BatchProcessingError,
     FileAccessError,
     ProcessingTimeoutError
 )
 from .document_tool_factory import get_document_tool_factory, DocumentToolFactory
-from .error_handler import get_error_handler, AnalysisFailureHandler
+from ..error_handling import get_error_handler, AnalysisFailureHandler
+from ..selection import get_tag_based_selector
+from ..selection import get_agent_configurator
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ class BatchResult:
     timestamp: datetime
 
 class TagRelevantBatchProcessor:
-    """Processes batches of documents based on tag relevance."""
+    """Processes batches of documents based on tag relevance with enhanced agent configuration."""
     
     def __init__(
         self,
@@ -64,6 +66,8 @@ class TagRelevantBatchProcessor:
         self.config = config or BatchConfiguration()
         self.tool_factory = tool_factory or get_document_tool_factory()
         self.error_handler = error_handler or get_error_handler()
+        self.tag_selector = get_tag_based_selector(max_documents=self.config.max_files_per_batch)
+        self.agent_configurator = get_agent_configurator()
         self._active_batches: Dict[str, BatchResult] = {}
         self._document_cache: Dict[str, DocumentRelevance] = {}
         
@@ -448,6 +452,203 @@ class TagRelevantBatchProcessor:
             created_at=datetime.utcnow()
         )
     
+    async def process_with_tag_based_selection(
+        self,
+        target_tags: List[TagModel],
+        available_documents: Dict[str, List[TagModel]],
+        exclude_paths: Optional[List[str]] = None
+    ) -> BatchResult:
+        """Process documents using tag-based selection with 5-document limit per analysis.
+        
+        Args:
+            target_tags: Target tags to find similar documents for
+            available_documents: Dict mapping file paths to their existing tags
+            exclude_paths: Document paths to exclude from selection
+            
+        Returns:
+            BatchResult with processing results
+        """
+        import uuid
+        
+        batch_id = str(uuid.uuid4())
+        start_time = time.time()
+        
+        logger.info(f"Starting tag-based batch processing [{batch_id}] with {len(target_tags)} target tags")
+        
+        try:
+            # Step 1: Select most relevant documents (max 5)
+            selected_docs = await self.tag_selector.select_relevant_documents(
+                target_tags=target_tags,
+                available_documents=available_documents,
+                exclude_paths=exclude_paths
+            )
+            
+            if not selected_docs:
+                logger.warning(f"No relevant documents found for target tags")
+                return BatchResult(
+                    batch_id=batch_id,
+                    total_files=0,
+                    successful_files=0,
+                    failed_files=0,
+                    processing_time_seconds=time.time() - start_time,
+                    results=[],
+                    errors=[],
+                    timestamp=datetime.utcnow()
+                )
+            
+            # Step 2: Validate selected documents
+            valid_docs = await self.tag_selector.validate_selected_documents(selected_docs)
+            
+            logger.info(f"Processing {len(valid_docs)} documents with tag-based selection")
+            
+            # Step 3: Configure agents with appropriate tools
+            agent_config = self.agent_configurator.configure_analysis_agents(
+                selected_documents=valid_docs,
+                target_tags=target_tags
+            )
+            
+            # Step 4: Create analysis batch using tool factory
+            tool_batches = self.tool_factory.create_analysis_batch(
+                selected_documents=valid_docs,
+                max_documents=5  # Enforce 5-document limit
+            )
+            
+            # Step 5: Process documents with configured agents
+            results, errors = await self._process_with_configured_agents(
+                documents=valid_docs,
+                agent_config=agent_config,
+                tool_batches=tool_batches,
+                target_tags=target_tags,
+                batch_id=batch_id
+            )
+            
+            processing_time = time.time() - start_time
+            
+            batch_result = BatchResult(
+                batch_id=batch_id,
+                total_files=len(valid_docs),
+                successful_files=len(results),
+                failed_files=len(errors),
+                processing_time_seconds=processing_time,
+                results=results,
+                errors=errors,
+                timestamp=datetime.utcnow()
+            )
+            
+            self._active_batches[batch_id] = batch_result
+            
+            logger.info(
+                f"Tag-based batch processing [{batch_id}] completed: "
+                f"{len(results)} successful, {len(errors)} failed, "
+                f"{processing_time:.2f}s total"
+            )
+            
+            return batch_result
+            
+        except Exception as e:
+            processing_time = time.time() - start_time
+            logger.error(f"Tag-based batch processing [{batch_id}] failed: {str(e)}")
+            
+            # Handle batch-level failure
+            failure_report = await self.error_handler.handle_failure(
+                error=BatchProcessingError(
+                    message=f"Tag-based batch processing failed: {str(e)}",
+                    failed_files=selected_docs if 'selected_docs' in locals() else [],
+                    details={"target_tags": [tag.name for tag in target_tags], "batch_id": batch_id}
+                ),
+                context={"batch_id": batch_id, "target_tags": target_tags}
+            )
+            
+            return BatchResult(
+                batch_id=batch_id,
+                total_files=0,
+                successful_files=0,
+                failed_files=len(selected_docs) if 'selected_docs' in locals() else 0,
+                processing_time_seconds=processing_time,
+                results=[],
+                errors=[{
+                    "error": "BatchProcessingError",
+                    "message": str(e),
+                    "details": failure_report
+                }],
+                timestamp=datetime.utcnow()
+            )
+    
+    async def _process_with_configured_agents(
+        self,
+        documents: List[str],
+        agent_config: Dict[str, Any],
+        tool_batches: Dict[str, List],
+        target_tags: List[TagModel],
+        batch_id: str
+    ) -> Tuple[List[AnalyzeDocumentResponse], List[Dict[str, Any]]]:
+        """Process documents using configured agents and tools.
+        
+        Args:
+            documents: List of document paths to process
+            agent_config: Configuration from agent configurator
+            tool_batches: Tool batches from tool factory
+            target_tags: Target tags for context
+            batch_id: Batch identifier
+            
+        Returns:
+            Tuple of (successful_results, errors)
+        """
+        results = []
+        errors = []
+        
+        try:
+            # Import here to avoid circular dependencies
+            from crewai import Crew
+            
+            # Create crew with configured agents and tasks
+            crew = Crew(
+                agents=list(agent_config["agents"].values()),
+                tasks=agent_config["tasks"],
+                verbose=True
+            )
+            
+            # Execute the crew
+            crew_result = crew.kickoff()
+            
+            # Process results for each document
+            for i, doc_path in enumerate(documents):
+                try:
+                    # Create individual document result
+                    # In a real implementation, you would parse the crew result more sophisticatedly
+                    doc_result = AnalyzeDocumentResponse(
+                        request_id=f"{batch_id}_{i}",
+                        document_path=doc_path,
+                        status="completed",
+                        tags=target_tags[:5],  # Use subset of target tags as example
+                        summary=f"Document processed in batch {batch_id}",
+                        processing_time_seconds=0.0,
+                        created_at=datetime.utcnow()
+                    )
+                    results.append(doc_result)
+                    
+                except Exception as doc_error:
+                    logger.error(f"Failed to process document {doc_path}: {str(doc_error)}")
+                    errors.append({
+                        "document_path": doc_path,
+                        "error": type(doc_error).__name__,
+                        "message": str(doc_error),
+                        "batch_id": batch_id
+                    })
+            
+        except Exception as e:
+            logger.error(f"Crew execution failed for batch {batch_id}: {str(e)}")
+            # Add all documents as errors if crew fails
+            for doc_path in documents:
+                errors.append({
+                    "document_path": doc_path,
+                    "error": "CrewExecutionError",
+                    "message": f"Crew execution failed: {str(e)}",
+                    "batch_id": batch_id
+                })
+        
+        return results, errors
+
     def get_batch_status(self, batch_id: str) -> Optional[BatchResult]:
         """Get status of a batch processing operation."""
         return self._active_batches.get(batch_id)

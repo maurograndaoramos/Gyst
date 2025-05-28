@@ -12,7 +12,7 @@ from ...schema.document_analysis import (
     AnalyzeDocumentErrorResponse,
     ProcessingStatusResponse
 )
-from ...core.crewai_service import get_document_analysis_service
+from ...core.services import get_document_analysis_service
 
 # Configure logging
 logger = logging.getLogger(__name__)

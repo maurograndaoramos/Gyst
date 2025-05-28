@@ -10,8 +10,8 @@ from crewai_tools import TXTSearchTool, PDFSearchTool, DOCXSearchTool, FileReadT
 from crewai.tools import BaseTool
 from pydantic import BaseModel
 
-from ..schema.document_analysis import AnalyzeDocumentResponse, TagModel
-from .config import get_settings
+from ...schema.document_analysis import AnalyzeDocumentResponse, TagModel
+from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class DocumentToolFactory:
         """Get default unified configuration optimized for pattern recognition."""
         return {
             "llm": {
-                "provider": "gemini",
+                "provider": "google",  # Use 'google' instead of 'gemini' for CrewAI tools
                 "config": {
                     "model": "gemini-2.0-flash-exp",
                     "temperature": 0.3,  # Lower for consistent pattern recognition
@@ -61,10 +61,10 @@ class DocumentToolFactory:
     
     def _initialize_registry(self) -> None:
         """Initialize the tool registry with supported document types."""
-        # Register TXTSearchTool for text and markdown files
+        # Register TXTSearchTool for text and markdown files (TextRagTool equivalent)
         self.register_tool_type(
             ToolConfiguration(
-                tool_class=TXTSearchTool,
+                tool_class=TXTSearchTool,  # This serves as TextRagTool
                 extensions=['.txt', '.md'],
                 fallback_tools=[FileReadTool],
                 priority=1,
@@ -73,10 +73,10 @@ class DocumentToolFactory:
             )
         )
         
-        # Register PDFSearchTool for PDF files
+        # Register PDFSearchTool for PDF files (PdfRagTool)
         self.register_tool_type(
             ToolConfiguration(
-                tool_class=PDFSearchTool,
+                tool_class=PDFSearchTool,  # This serves as PdfRagTool
                 extensions=['.pdf'],
                 fallback_tools=[TXTSearchTool, FileReadTool],
                 priority=1,
@@ -85,10 +85,10 @@ class DocumentToolFactory:
             )
         )
         
-        # Register DOCXSearchTool for Word documents
+        # Register DOCXSearchTool for Word documents (DocxRagTool)
         self.register_tool_type(
             ToolConfiguration(
-                tool_class=DOCXSearchTool,
+                tool_class=DOCXSearchTool,  # This serves as DocxRagTool
                 extensions=['.docx'],
                 fallback_tools=[TXTSearchTool, FileReadTool],
                 priority=1,
@@ -237,6 +237,56 @@ class DocumentToolFactory:
             sorted_strategy[ext] = strategy[ext]
         
         return sorted_strategy
+    
+    def create_analysis_batch(
+        self, 
+        selected_documents: List[str], 
+        max_documents: int = 5,
+        config_override: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, List[BaseTool]]:
+        """Create a batch of tools for analysis with document limit enforcement.
+        
+        Args:
+            selected_documents: List of document paths selected for analysis
+            max_documents: Maximum number of documents to process (default: 5)
+            config_override: Optional configuration override for tools
+            
+        Returns:
+            Dictionary mapping file extensions to created tools
+        """
+        # Enforce document limit
+        limited_documents = selected_documents[:max_documents]
+        
+        if len(selected_documents) > max_documents:
+            logger.warning(
+                f"Document limit enforced: processing {max_documents} of {len(selected_documents)} documents"
+            )
+        
+        # Group documents by extension for efficient tool creation
+        tool_batches = {}
+        
+        for doc_path in limited_documents:
+            file_ext = Path(doc_path).suffix.lower()
+            
+            if not self.has_support_for(file_ext):
+                logger.warning(f"Skipping unsupported file type: {file_ext} for {doc_path}")
+                continue
+            
+            if file_ext not in tool_batches:
+                tool_batches[file_ext] = []
+            
+            try:
+                tool = self.create_tool(doc_path, config_override)
+                tool_batches[file_ext].append(tool)
+                
+            except Exception as e:
+                logger.error(f"Failed to create tool for {doc_path}: {str(e)}")
+                continue
+        
+        total_tools = sum(len(tools) for tools in tool_batches.values())
+        logger.info(f"Created analysis batch: {total_tools} tools across {len(tool_batches)} file types")
+        
+        return tool_batches
 
 
 # Global factory instance

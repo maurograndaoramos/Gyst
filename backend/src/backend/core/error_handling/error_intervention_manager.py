@@ -11,8 +11,8 @@ from enum import Enum
 import asyncio
 
 from pydantic import BaseModel
-from ..schema.document_analysis import AnalyzeDocumentErrorResponse
-from .config import get_settings
+from ...schema.document_analysis import AnalyzeDocumentErrorResponse
+from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
