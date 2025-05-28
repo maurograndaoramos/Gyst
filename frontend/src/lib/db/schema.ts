@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, primaryKey } from "drizzle-orm/sqlite-core"
+import { integer, sqliteTable, text, primaryKey, real, unique } from "drizzle-orm/sqlite-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 import { randomUUID } from "crypto"
 
@@ -169,3 +169,39 @@ export const auditLogs = sqliteTable("audit_logs", {
   errorMessage: text("errorMessage"),
   timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull()
 })
+
+export const tags = sqliteTable("tag", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull().unique(),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date())
+});
+
+export const documentTags = sqliteTable("document_tag", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  documentId: text("documentId")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  tagId: text("tagId")
+    .notNull()
+    .references(() => tags.id, { onDelete: "cascade" }),
+  confidence: real("confidence").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date())
+}, (table) => ({
+  documentTagUnique: unique().on(table.documentId, table.tagId)
+}));
