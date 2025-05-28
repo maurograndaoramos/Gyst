@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react'
 import { useEffect } from 'react'
 import { UploadExample } from '@/components/upload-example'
 
+import FileUploadComponent from '@/components/FileUploadComponent';
+
 export default function DashboardPage() {
   const params = useParams()
   const router = useRouter()
@@ -55,6 +57,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+    <div>
+      <FileUploadComponent />
     </div>
   )
 }
