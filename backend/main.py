@@ -1,11 +1,15 @@
 """Main application entry point for the backend FastAPI service."""
 import logging
+import signal
+import asyncio
 import uvicorn
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.backend.api.routes.documents import router as documents_router
 from src.backend.core.config import get_settings
+from src.backend.core.error_handling.circuit_breaker import get_circuit_breaker_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,12 +18,57 @@ logger = logging.getLogger(__name__)
 # Get settings
 settings = get_settings()
 
+# Global shutdown event
+shutdown_event = asyncio.Event()
+
+async def graceful_shutdown():
+    """Handle graceful shutdown of services."""
+    logger.info("Starting graceful shutdown...")
+    
+    try:
+        # Reset circuit breakers
+        circuit_manager = get_circuit_breaker_manager()
+        await circuit_manager.reset_all()
+        logger.info("Circuit breakers reset")
+        
+        # Add any other cleanup tasks here
+        # e.g., close database connections, save pending data, etc.
+        
+        logger.info("Graceful shutdown completed")
+    except Exception as e:
+        logger.error(f"Error during graceful shutdown: {e}")
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals."""
+    logger.info(f"Received signal {signum}, initiating graceful shutdown")
+    shutdown_event.set()
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan management."""
+    # Startup
+    logger.info("Starting GYST Document Analysis API")
+    
+    # Initialize circuit breaker manager
+    circuit_manager = get_circuit_breaker_manager()
+    logger.info("Circuit breaker manager initialized")
+    
+    yield
+    
+    # Shutdown
+    await graceful_shutdown()
+
 # Create FastAPI application
 app = FastAPI(
     title=settings.api_title,
     description=settings.api_description,
     version=settings.api_version,
     debug=settings.debug,
+    lifespan=lifespan
 )
 
 # Add CORS middleware

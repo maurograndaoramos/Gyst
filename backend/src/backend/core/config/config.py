@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     
     # Analysis Configuration
     default_max_tags: int = Field(default=10, description="Default maximum number of tags to generate")
-    max_analysis_time_seconds: int = Field(default=300, description="Maximum time for analysis in seconds")
+    max_analysis_time_seconds: int = Field(default=120, description="Maximum time for analysis in seconds")
     
     # Logging Configuration
     log_level: str = Field(default="INFO", description="Logging level")

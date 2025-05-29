@@ -26,7 +26,7 @@ class BatchConfiguration:
     """Configuration for batch processing operations."""
     max_concurrent_files: int = 5
     max_files_per_batch: int = 5
-    processing_timeout_seconds: int = 300
+    processing_timeout_seconds: int = 120
     relevance_threshold: float = 0.6
     enable_parallel_processing: bool = True
     preserve_processing_order: bool = False
