@@ -1,7 +1,7 @@
 'use client'
 import { FileDisplay } from "@/components/ui/fileDisplay";
 import { AppSidebar } from "@/components/app-sidebar"
-import ResizeableDiv  from "@/components/ResizableDiv"
+import { Textarea } from "@/components/ui/textarea";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -97,24 +97,36 @@ const handleMouseUp = () => {
           {/* <div className="grid auto-rows-min gap-4 md:grid-cols-3"> */}
           <div id="collapseableSideBar" className="h-full" style={{ minWidth: isCollapsed ? 0 : width }}>
             <div 
-              className={`fixed top-[5rem] right-4 rounded-l h-[calc(100vh-5rem)] bg-gray-100 bg-red-500 transition-all duration-200 ${isCollapsed ? 'translate-x-full' : ''}`}
+              className={`fixed top-[5rem] p-10 right-4 rounded-l h-[calc(100vh-5rem)] bg-gray-100 bg-red-500 transition-all duration-200 ${isCollapsed ? 'translate-x-full cursor-pointer' : ''}`}
               style={{ width: width }}
+              onClick={isCollapsed ? () => {
+                setIsCollapsed(false);
+                setWidth(300); // Restore original width
+              } : undefined}
             >
-<div 
-  className={`absolute left-0 top-0 bottom-0 w-1 ${isCollapsed ? 'cursor-pointer' : 'cursor-col-resize'} hover:bg-gray-300`}
-onMouseDown={!isCollapsed ? handleMouseDown : undefined}
-onClick={isCollapsed ? () => {
-    setIsCollapsed(false);
-    setWidth(300); // Restore original width
-  } : undefined}
-/>
+              <div className="absolute top-2 left-2 flex items-center gap-2">
+                <img src="/public/file.svg" alt="Logo" className="h-6 w-6" />
+                <span className="text-lg font-bold">GYST-AI</span>
+              </div>
+              <button 
+                className="absolute top-2 right-2 bg-gray-300 hover:bg-gray-400 text-black rounded px-2 py-1"
+                onClick={() => {
+                  setIsCollapsed(true);
+                  setWidth(0); // Collapse the div
+                }}
+              >
+                Collapse
+              </button>
+              <div className="flex flex-col justify-center align-center h-full">
+                <p className="">How can I help?</p>
+                <Textarea></Textarea>
+              </div>
+              <div 
+                className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500"
+                onMouseDown={!isCollapsed ? handleMouseDown : undefined}
+              ></div>
             </div>
           </div>
-          {/* <div className="h-full min-w-[300px] w bg-red-500 resize-x overflow-auto">
-          </div> */}
-            {/* <ResizeableDiv></ResizeableDiv> */}
-          {/* </div> */}
-          {/* <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" /> */}
         </div>
       </SidebarInset>
     </SidebarProvider>
