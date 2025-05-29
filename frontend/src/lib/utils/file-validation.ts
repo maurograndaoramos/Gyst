@@ -1,6 +1,6 @@
 import { fileTypeFromBuffer } from 'file-type'
 import { createHash } from 'crypto'
-import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE, type FileValidationResult } from '@/lib/types/upload'
+import { SUPPORTED_MIME_TYPES, MAX_FILE_SIZE, SUPPORTED_EXTENSIONS, type FileValidationResult } from '@/lib/types/upload'
 
 export async function validateFile(
   buffer: Buffer,
@@ -52,9 +52,8 @@ export async function validateFile(
 
   // 6. Extension validation
   const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'))
-  const validExtensions = ['.txt', '.md', '.pdf', '.docx']
-  if (!validExtensions.includes(extension)) {
-    errors.push(`Unsupported file extension: ${extension}. Supported: ${validExtensions.join(', ')}`)
+  if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+    errors.push(`Unsupported file extension: ${extension}. Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`)
   }
 
   return {
