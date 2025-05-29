@@ -1,6 +1,7 @@
 'use client'
 import { FileDisplay } from "@/components/ui/fileDisplay";
 import { AppSidebar } from "@/components/app-sidebar"
+import ResizeableDiv  from "@/components/ResizableDiv"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -26,30 +27,36 @@ export default function Page() {
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsResizing(true);
-    startXRef.current = e.clientX;
-    startWidthRef.current = width;
-  };
+const handleMouseDown = (e: React.MouseEvent) => {
+  setIsResizing(true);
+  startXRef.current = e.clientX;
+  startWidthRef.current = width;
+  document.body.style.cursor = "ew-resize"; // Change cursor to "ew-resize"
+};
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing) return;
-    
-    const deltaX = startXRef.current - e.clientX;
-    const newWidth = startWidthRef.current + deltaX;
-    
-    if (newWidth < 300) {
-      setIsCollapsed(true);
-      setWidth(300);
-    } else {
-      setIsCollapsed(false);
-      setWidth(newWidth);
-    }
-  };
+const MAX_WIDTH = 600; // Define the maximum width
 
-  const handleMouseUp = () => {
-    setIsResizing(false);
-  };
+const handleMouseMove = (e: MouseEvent) => {
+  if (!isResizing) return;
+
+  const deltaX = startXRef.current - e.clientX;
+  const newWidth = startWidthRef.current + deltaX;
+
+  if (newWidth < 150) {
+    setIsCollapsed(true);
+    setWidth(300);
+  } else if (newWidth > MAX_WIDTH) {
+    setWidth(MAX_WIDTH);
+  } else {
+    setIsCollapsed(false);
+    setWidth(newWidth);
+  }
+};
+
+const handleMouseUp = () => {
+  setIsResizing(false);
+  document.body.style.cursor = ""; // Reset cursor to default
+};
 
   useEffect(() => {
     if (isResizing) {
@@ -88,17 +95,24 @@ export default function Page() {
         <div className="w-full h-full p-4 flex gap-4">
           <FileDisplay content={fileText} />
           {/* <div className="grid auto-rows-min gap-4 md:grid-cols-3"> */}
-          <div className="h-full" style={{ minWidth: isCollapsed ? 0 : width }}>
+          <div id="collapseableSideBar" className="h-full" style={{ minWidth: isCollapsed ? 0 : width }}>
             <div 
               className={`fixed top-[5rem] right-4 rounded-l h-[calc(100vh-5rem)] bg-gray-100 bg-red-500 transition-all duration-200 ${isCollapsed ? 'translate-x-full' : ''}`}
               style={{ width: width }}
             >
-              <div 
-                className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-300"
-                onMouseDown={handleMouseDown}
-              />
+<div 
+  className={`absolute left-0 top-0 bottom-0 w-1 ${isCollapsed ? 'cursor-pointer' : 'cursor-col-resize'} hover:bg-gray-300`}
+onMouseDown={!isCollapsed ? handleMouseDown : undefined}
+onClick={isCollapsed ? () => {
+    setIsCollapsed(false);
+    setWidth(300); // Restore original width
+  } : undefined}
+/>
             </div>
           </div>
+          {/* <div className="h-full min-w-[300px] w bg-red-500 resize-x overflow-auto">
+          </div> */}
+            {/* <ResizeableDiv></ResizeableDiv> */}
           {/* </div> */}
           {/* <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" /> */}
         </div>
