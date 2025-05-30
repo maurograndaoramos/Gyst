@@ -356,6 +356,7 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
                   item={item} 
                   onSelect={handleFileSelect}
                   selectedFile={selectedFile}
+                  currentPath=""
                 />
               ))}
             </SidebarMenu>
@@ -370,20 +371,23 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
 function Tree({ 
   item, 
   onSelect,
-  selectedFile 
+  selectedFile,
+  currentPath
 }: { 
   item: string | any[];
   onSelect: (filePath: string) => void;
   selectedFile: string;
+  currentPath: string;
 }) {
   const [name, ...items] = Array.isArray(item) ? item : [item]
+  const fullPath = currentPath ? `${currentPath}/${name}` : name;
 
   if (!items.length) {
     return (
       <SidebarMenuButton
-        isActive={name === selectedFile}
+        isActive={fullPath === selectedFile}
         className="data-[active=true]:bg-transparent"
-        onClick={() => onSelect(name)}
+        onClick={() => onSelect(fullPath)}
       >
         <File />
         {name}
@@ -412,6 +416,7 @@ function Tree({
                 item={subItem} 
                 onSelect={onSelect}
                 selectedFile={selectedFile}
+                currentPath={fullPath}
               />
             ))}
           </SidebarMenuSub>
