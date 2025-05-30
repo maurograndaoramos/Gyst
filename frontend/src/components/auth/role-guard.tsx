@@ -16,7 +16,13 @@ interface RoleGuardProps {
  * Redirects to unauthorized/login if role requirements not met
  */
 export function RoleGuard({ children, requiredRole, fallback }: RoleGuardProps) {
-  const { isLoading, isAuthenticated, checkRole } = useRequireRole(requiredRole)
+  const { isLoading, isAuthenticated, user } = useRequireRole(requiredRole)
+
+  const checkRole = (role: UserRole): boolean => {
+    if (!user?.role) return false
+    if (user.role === 'admin') return true
+    return user.role === role
+  }
 
   if (isLoading) {
     return fallback || <LoadingSpinner />

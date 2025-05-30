@@ -2,6 +2,22 @@ import { integer, sqliteTable, text, primaryKey, real, unique } from "drizzle-or
 import type { AdapterAccountType } from "next-auth/adapters"
 import { randomUUID } from "crypto"
 
+// Define organizations table first as other tables will reference it
+export const organizations = sqliteTable("organization", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  name: text("name").notNull().unique(),
+  owner_id: text("owner_id").notNull(), // Remove circular reference for now
+  created_at: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});
+
 export const users = sqliteTable("user", {
   id: text("id")
     .primaryKey()
@@ -90,23 +106,7 @@ export const authenticators = sqliteTable(
   ]
 )
 
-// Define organizations table first as other tables will reference it
-export const organizations = sqliteTable("organization", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => randomUUID()),
-  name: text("name").notNull().unique(),
-  owner_id: text("owner_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }), // Assuming owner_id refers to a user
-  created_at: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" })
-    .notNull()
-    .$defaultFn(() => new Date())
-    .$onUpdate(() => new Date()),
-});
+
 
 // Example business tables that require organization filtering
 export const projects = sqliteTable("project", {
