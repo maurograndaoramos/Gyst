@@ -1,8 +1,16 @@
 import * as React from "react"
-import { ChevronRight, File, Folder, Search, X, History } from "lucide-react"
+import { ChevronRight, File, Folder, Search, X, History, Tag, XCircle } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Collapsible,
   CollapsibleContent,
@@ -66,6 +74,18 @@ const data = {
   ],
 }
 
+// Mock data for tags
+const mockTags = [
+  { id: 1, name: "Project", count: 15, color: "blue" },
+  { id: 2, name: "Meeting", count: 8, color: "green" },
+  { id: 3, name: "Document", count: 12, color: "blue" },
+  { id: 4, name: "Task", count: 20, color: "blue" },
+  { id: 5, name: "Note", count: 5, color: "yellow" },
+  { id: 6, name: "Idea", count: 3, color: "yellow" },
+  { id: 7, name: "Report", count: 7, color: "green" },
+  { id: 8, name: "Review", count: 4, color: "yellow" },
+]
+
 // Helper function to highlight matched text
 const highlightMatch = (text: string, query: string) => {
   if (!query) return text;
@@ -91,7 +111,75 @@ const flattenTree = (tree: any[]): string[] => {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [tagSearchQuery, setTagSearchQuery] = React.useState("");
+  const [selectedTags, setSelectedTags] = React.useState<number[]>([]);
+  const [filterLogic, setFilterLogic] = React.useState<"AND" | "OR">("OR");
+  const [sortBy, setSortBy] = React.useState<"count" | "name">("count");
   const debouncedSearch = useDebounce(searchQuery, 300);
+  const debouncedTagSearch = useDebounce(tagSearchQuery, 300);
+
+  // Sync selected tags with URL
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tags = params.get("tags");
+    if (tags) {
+      setSelectedTags(tags.split(",").map(Number));
+    }
+  }, []);
+
+  // Update URL when tags change
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (selectedTags.length > 0) {
+      params.set("tags", selectedTags.join(","));
+    } else {
+      params.delete("tags");
+    }
+    window.history.replaceState({}, "", `${window.location.pathname}?${params}`);
+  }, [selectedTags]);
+
+  // Sort tags based on selected option
+  const sortedTags = React.useMemo(() => {
+    return [...mockTags].sort((a, b) => {
+      if (sortBy === "count") {
+        return b.count - a.count;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [sortBy]);
+
+  // Get tag color based on frequency
+  const getTagColor = (count: number) => {
+    if (count >= 10) return "tagCommon";
+    if (count >= 5) return "tagMedium";
+    return "tagRare";
+  };
+
+  // Toggle tag selection
+  const toggleTag = (tagId: number) => {
+    setSelectedTags(prev =>
+      prev.includes(tagId)
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
+  // Clear all selected tags
+  const clearTags = () => {
+    setSelectedTags([]);
+  };
+
+  // Filter tags based on search query
+  const filteredTags = React.useMemo(() => {
+    return sortedTags.filter(tag => 
+      tag.name.toLowerCase().includes(debouncedTagSearch.toLowerCase())
+    );
+  }, [sortedTags, debouncedTagSearch]);
+
+  // Clear tag search
+  const clearTagSearch = () => {
+    setTagSearchQuery("");
+  };
 
   // Flatten tree for search
   const allFiles = React.useMemo(() => flattenTree(data.tree), []);
@@ -113,74 +201,144 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar {...props}>
       <SidebarContent>
+        {/* Tag Filter Section */}
         <SidebarGroup>
-          <div className="relative px-2 py-2">
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Search files..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-8"
-              />
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4"
-                  onClick={clearSearch}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-
-            {/* Search Results */}
-            {debouncedSearch && (
-              <div className="px-2 py-1">
-                <div className="text-sm text-gray-500">
-                  {filteredFiles.length} {filteredFiles.length === 1 ? 'result' : 'results'}
-                </div>
-                {filteredFiles.length === 0 ? (
-                  <div className="text-sm text-gray-500 py-2">No results found</div>
-                ) : (
-                  <SidebarMenu>
-                    {filteredFiles.map((file, index) => (
-                      <SidebarMenuItem key={index}>
-                        <SidebarMenuButton>
-                          <File />
-                          {highlightMatch(file, debouncedSearch)}
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
+          <SidebarGroupLabel className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Tag className="w-4 h-4" />
+              Tags
+            </span>
+            {selectedTags.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={clearTags}
+              >
+                Clear all
+              </Button>
+            )}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-2 space-y-2">
+              {/* Tag Search Input */}
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search tags..."
+                  value={tagSearchQuery}
+                  onChange={(e) => setTagSearchQuery(e.target.value)}
+                  className="pl-8 pr-8"
+                />
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                {tagSearchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4"
+                    onClick={clearTagSearch}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 )}
               </div>
-            )}
-          </div>
-        </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Changes</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {data.changes.map((item, index) => (
-                <SidebarMenuItem key={index}>
-                  <SidebarMenuButton>
-                    <File />
-                    {item.file}
-                  </SidebarMenuButton>
-                  <SidebarMenuBadge>{item.state}</SidebarMenuBadge>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+              {/* Filter Logic Selector */}
+              <div className="flex items-center gap-2">
+                <Select value={filterLogic} onValueChange={(value: "AND" | "OR") => setFilterLogic(value)}>
+                  <SelectTrigger className="h-8 w-[100px]">
+                    <SelectValue placeholder="Logic" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AND">AND</SelectItem>
+                    <SelectItem value="OR">OR</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={sortBy} onValueChange={(value: "count" | "name") => setSortBy(value)}>
+                  <SelectTrigger className="h-8 w-[120px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="count">Count</SelectItem>
+                    <SelectItem value="name">Name</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Tags Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {filteredTags.map((tag) => (
+                  <Badge
+                    key={tag.id}
+                    variant={selectedTags.includes(tag.id) ? "tagSelected" : getTagColor(tag.count)}
+                    className="cursor-pointer flex items-center justify-between"
+                    onClick={() => toggleTag(tag.id)}
+                  >
+                    <span>{tag.name}</span>
+                    <span className="ml-1 text-xs opacity-75">{tag.count}</span>
+                  </Badge>
+                ))}
+                {filteredTags.length === 0 && (
+                  <div className="col-span-2 text-sm text-gray-500 py-2 text-center">
+                    No tags found
+                  </div>
+                )}
+              </div>
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
           <SidebarGroupLabel>Files</SidebarGroupLabel>
           <SidebarGroupContent>
+            {/* File Search Input */}
+            <div className="relative px-2 py-2">
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search files..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-8"
+                />
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4"
+                    onClick={clearSearch}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Search Results */}
+              {debouncedSearch && (
+                <div className="px-2 py-1">
+                  <div className="text-sm text-gray-500">
+                    {filteredFiles.length} {filteredFiles.length === 1 ? 'result' : 'results'}
+                  </div>
+                  {filteredFiles.length === 0 ? (
+                    <div className="text-sm text-gray-500 py-2">No results found</div>
+                  ) : (
+                    <SidebarMenu>
+                      {filteredFiles.map((file, index) => (
+                        <SidebarMenuItem key={index}>
+                          <SidebarMenuButton>
+                            <File />
+                            {highlightMatch(file, debouncedSearch)}
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  )}
+                </div>
+              )}
+            </div>
+
             <SidebarMenu>
               {data.tree.map((item, index) => (
                 <Tree key={index} item={item} />
