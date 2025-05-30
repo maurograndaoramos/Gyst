@@ -1,4 +1,5 @@
 'use client'
+import * as React from "react"
 import { FileDisplay } from "@/components/ui/fileDisplay";
 import { AppSidebar } from "@/components/app-sidebar"
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +29,7 @@ export default function Page() {
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedFilePath, setSelectedFilePath] = useState<string>("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const startXRef = useRef(0);
@@ -92,9 +94,16 @@ export default function Page() {
     };
   }, [isResizing]);
 
+  const handleFileSelect = (filePath: string) => {
+    setSelectedFilePath(filePath);
+  };
+
+  // Split the file path into segments for the breadcrumb
+  const pathSegments = selectedFilePath.split('/').filter(Boolean);
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar onFileSelect={handleFileSelect} />
       <SidebarInset>
         <header className="border-b border-gray-400 sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4">
           <div className="flex items-center gap-2">
@@ -102,17 +111,30 @@ export default function Page() {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#">components</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#">ui</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>button.tsx</BreadcrumbPage>
-                </BreadcrumbItem>
+                {pathSegments.map((segment, index) => {
+                  const isLast = index === pathSegments.length - 1;
+                  const path = pathSegments.slice(0, index + 1).join('/');
+                  
+                  return (
+                    <React.Fragment key={path}>
+                      <BreadcrumbItem className="hidden md:block">
+                        {isLast ? (
+                          <BreadcrumbPage>{segment}</BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink href="#">{segment}</BreadcrumbLink>
+                        )}
+                      </BreadcrumbItem>
+                      {!isLast && (
+                        <BreadcrumbSeparator className="hidden md:block" />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                {pathSegments.length === 0 && (
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>No file selected</BreadcrumbPage>
+                  </BreadcrumbItem>
+                )}
               </BreadcrumbList>
             </Breadcrumb>
           </div>

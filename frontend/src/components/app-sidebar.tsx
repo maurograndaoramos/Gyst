@@ -109,12 +109,17 @@ const flattenTree = (tree: any[]): string[] => {
   }, []);
 };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  onFileSelect?: (filePath: string) => void;
+}
+
+export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [tagSearchQuery, setTagSearchQuery] = React.useState("");
   const [selectedTags, setSelectedTags] = React.useState<number[]>([]);
   const [filterLogic, setFilterLogic] = React.useState<"AND" | "OR">("OR");
   const [sortBy, setSortBy] = React.useState<"count" | "name">("count");
+  const [selectedFile, setSelectedFile] = React.useState<string>("");
   const debouncedSearch = useDebounce(searchQuery, 300);
   const debouncedTagSearch = useDebounce(tagSearchQuery, 300);
 
@@ -196,6 +201,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Clear search
   const clearSearch = () => {
     setSearchQuery("");
+  };
+
+  const handleFileSelect = (filePath: string) => {
+    setSelectedFile(filePath);
+    onFileSelect?.(filePath);
   };
 
   return (
@@ -341,7 +351,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             <SidebarMenu>
               {data.tree.map((item, index) => (
-                <Tree key={index} item={item} />
+                <Tree 
+                  key={index} 
+                  item={item} 
+                  onSelect={handleFileSelect}
+                  selectedFile={selectedFile}
+                />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -352,14 +367,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   )
 }
 
-function Tree({ item }: { item: string | any[] }) {
+function Tree({ 
+  item, 
+  onSelect,
+  selectedFile 
+}: { 
+  item: string | any[];
+  onSelect: (filePath: string) => void;
+  selectedFile: string;
+}) {
   const [name, ...items] = Array.isArray(item) ? item : [item]
 
   if (!items.length) {
     return (
       <SidebarMenuButton
-        isActive={name === "button.tsx"}
+        isActive={name === selectedFile}
         className="data-[active=true]:bg-transparent"
+        onClick={() => onSelect(name)}
       >
         <File />
         {name}
@@ -383,7 +407,12 @@ function Tree({ item }: { item: string | any[] }) {
         <CollapsibleContent>
           <SidebarMenuSub>
             {items.map((subItem, index) => (
-              <Tree key={index} item={subItem} />
+              <Tree 
+                key={index} 
+                item={subItem} 
+                onSelect={onSelect}
+                selectedFile={selectedFile}
+              />
             ))}
           </SidebarMenuSub>
         </CollapsibleContent>
