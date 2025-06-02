@@ -68,9 +68,9 @@ export default function Page() {
 
     if (newWidth < 150) {
       setIsCollapsed(true);
-      setWidth(350);
     } else if (newWidth > MAX_WIDTH) {
       setWidth(MAX_WIDTH);
+      setIsCollapsed(false);
     } else {
       setIsCollapsed(false);
       setWidth(newWidth);
@@ -102,129 +102,135 @@ export default function Page() {
   const pathSegments = selectedFilePath.split('/').filter(Boolean);
 
   return (
-    <SidebarProvider>
-      <AppSidebar onFileSelect={handleFileSelect} />
-      <SidebarInset>
-        <header className="border-b border-gray-400 sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                {pathSegments.map((segment, index) => {
-                  const isLast = index === pathSegments.length - 1;
-                  const path = pathSegments.slice(0, index + 1).join('/');
-                  
-                  return (
-                    <React.Fragment key={path}>
-                      <BreadcrumbItem className="hidden md:block">
-                        {isLast ? (
-                          <BreadcrumbPage>{segment}</BreadcrumbPage>
-                        ) : (
-                          <BreadcrumbLink href="#">{segment}</BreadcrumbLink>
+    <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
+      <SidebarProvider>
+        <AppSidebar onFileSelect={handleFileSelect} />
+        <SidebarInset>
+          <header className="border-b border-gray-400 sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  {pathSegments.map((segment, index) => {
+                    const isLast = index === pathSegments.length - 1;
+                    const path = pathSegments.slice(0, index + 1).join('/');
+      
+                    return (
+                      <React.Fragment key={path}>
+                        <BreadcrumbItem className="hidden md:block">
+                          {isLast ? (
+                            <BreadcrumbPage>{segment}</BreadcrumbPage>
+                          ) : (
+                            <BreadcrumbLink href="#">{segment}</BreadcrumbLink>
+                          )}
+                        </BreadcrumbItem>
+                        {!isLast && (
+                          <BreadcrumbSeparator className="hidden md:block" />
                         )}
-                      </BreadcrumbItem>
-                      {!isLast && (
-                        <BreadcrumbSeparator className="hidden md:block" />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-                {pathSegments.length === 0 && (
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>No file selected</BreadcrumbPage>
-                  </BreadcrumbItem>
+                      </React.Fragment>
+                    );
+                  })}
+                  {pathSegments.length === 0 && (
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>No file selected</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+            <div>
+      
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">Welcome, User</span>
+              <div className="relative" ref={dropdownRef}>
+                <div
+                  id="profile-pic"
+                  className="h-[50px] w-[50px] border border-gray-300 rounded-full bg-cover bg-center cursor-pointer"
+                  style={{ backgroundImage: "url(/user-2.png)" }}
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                ></div>
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+                    <div className="py-1">
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 "
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <div>
-            
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium">Welcome, User</span>
-            <div className="relative" ref={dropdownRef}>
-              <div 
-                className="h-[50px] w-[50px] border border-gray-300 rounded-full bg-cover bg-center cursor-pointer" 
-                style={{ backgroundImage: "url('https://thumbs.dreamstime.com/z/creative-vector-illustration-default-avatar-profile-placeholder-isolated-background-art-design-grey-photo-blank-template-mo-118823351.jpg?ct=jpeg)" }}
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              ></div>
-              {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
-                  <div className="py-1">
+              </div>
+            </div>
+          </header>
+          <div className="w-full h-full flex">
+            <FileDisplay content={fileText} />
+            {/* Resizable sidebar container */}
+            <div className="relative h-full flex-shrink-0" style={{ width: isCollapsed ? 0 : width }}>
+              {/* Collapse button when sidebar is collapsed */}
+              {isCollapsed && (
+                <button
+                  onClick={() => {
+                    setIsCollapsed(false);
+                    setWidth(350);
+                  }}
+                  className="fixed top-[5rem] right-4 w-8 h-8 bg-gray-100 border border-gray-400 rounded-md flex items-center justify-center hover:bg-gray-200 transition-colors shadow-sm z-50"
+                >
+                  <PanelRightOpen className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* Sidebar content */}
+              {!isCollapsed && (
+                <div
+                  id="gyst-sidebar"
+                  className="w-full h-[calc(100vh-4rem)] bg-gray-100 border border-gray-400 box-border p-4 relative"
+                >
+                  <div className="flex justify-between gap-2 mb-4">
+                    <span className="text-lg font-bold">GYST-AI</span>
                     <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="bg-gray-300 hover:bg-gray-400 text-black rounded px-2 py-1"
+                      onClick={() => {
+                        setIsCollapsed(true);
+                      }}
                     >
-                      Logout
+                      <PanelRightClose className="w-4 h-4" />
                     </button>
+                  </div>
+                  
+                  <div id="prompt-area" className="absolute bottom-0 left-0 right-0 flex flex-col justify-center items-center p-6  rounded-md">
+                    <p className="text-center text-2xl font-bold mb-8">How can I help?</p>
+                    <div className="relative w-full">
+                      <Textarea className="w-full pr-12" />
+                      <button
+                        className="absolute right-2 bottom-2 p-2 text-gray-500 hover:text-gray-700 transition-colors hover:bg-gray-100"
+                        onClick={() => {
+                          // Handle submit logic here
+                          console.log('Submit clicked');
+                        }}
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </header>
-        <div className="w-full h-full p-4 flex gap-4">
-          <FileDisplay content={fileText} />
-          {/* <div className="grid auto-rows-min gap-4 md:grid-cols-3"> */}
-          <div id="collapseableSideBar" className="h-full" style={{ minWidth: isCollapsed ? 0 : width }}>
-            {isCollapsed && (
-              <button
-                onClick={() => {
-                  setIsCollapsed(false);
-                  setWidth(350);
-                }}
-                className="fixed top-[5rem] right-4 w-8 h-8 bg-gray-100 border border-gray-400 rounded-md flex items-center justify-center hover:bg-gray-200 transition-colors shadow-sm z-50"
-              >
-                <PanelRightOpen className="w-4 h-4" />
-              </button>
-            )}
-            <div 
-              className={`border border-gray-400 bg-gray-100 fixed top-[5rem] p-10 right-4 h-[calc(100vh-5rem)] bg-gray-100 transition-all duration-200 ${isCollapsed ? 'translate-x-full cursor-pointer' : ''}`}
-              style={{ width: width }}
-              onClick={isCollapsed ? () => {
-                setIsCollapsed(false);
-                setWidth(350); // Restore original width
-              } : undefined}
-            >
-              <div className="absolute top-2 left-2 flex items-center gap-2">
-                <img src="/gyst-logo-black.png" alt="GYST Logo" className="h-6 w-6" />
-                <span className="text-lg font-bold ">GYST-AI</span>
-              </div>
+              
+              {/* Resize handle - positioned outside the sidebar content */}
               {!isCollapsed && (
-                <button 
-                  className="absolute top-2 right-2 bg-gray-300 hover:bg-gray-400 text-black rounded px-2 py-1"
-                  onClick={() => {
-                    setIsCollapsed(true);
-                    setWidth(0); // Collapse the div
-                  }}
-                >
-                  <PanelRightClose className="w-4 h-4" />
-                </button>
+                <div
+                  id="sidebar-resize-handle"
+                  className="absolute top-0 left-0 w-1 h-full cursor-ew-resize hover:bg-gray-200 bg-gray-300 transition-colors"
+                  onMouseDown={handleMouseDown}
+                ></div>
               )}
-              <div id="prompt-area" className="absolute bottom-0 left-0 w-full flex flex-col justify-center items-center p-6">
-                <p className="text-center text-xl font-bold mb-4">How can I help?</p>
-                <div className="relative w-full">
-                  <Textarea className="w-full pr-12" />
-                  <button 
-                    className="absolute right-2 bottom-2 p-2 text-gray-500 hover:text-gray-700 transition-colors rounded-md hover:bg-gray-100"
-                    onClick={() => {
-                      // Handle submit logic here
-                      console.log('Submit clicked');
-                    }}
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              <div 
-                className={`absolute left-0 top-0 bottom-0 w-1 ${!isCollapsed ? 'cursor-ew-resize hover:bg-blue-500' : ''}`}
-                onMouseDown={!isCollapsed ? handleMouseDown : undefined}
-              ></div>
             </div>
           </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+        </SidebarInset>
+      </SidebarProvider>
+    </div>
   )
 }
