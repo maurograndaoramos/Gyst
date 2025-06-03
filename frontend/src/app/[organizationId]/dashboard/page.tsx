@@ -187,9 +187,9 @@ export default function Page() {
               {!isCollapsed && (
                 <div
                   id="gyst-sidebar"
-                  className="w-full h-[calc(100vh-4rem)] bg-gray-100 border border-gray-400 box-border p-4 mt-5 relative"
+                  className="w-full h-[calc(100vh-4rem)] bg-gray-100 border border-gray-400 box-border flex flex-col"
                 >
-                  <div className="flex justify-between gap-2 mb-4">
+                  <div className="flex justify-between gap-2 p-4 pb-0">
                     <span className="text-lg font-bold">GYST-AI</span>
                     <button
                       className="bg-gray-300 hover:bg-gray-400 text-black rounded px-2 py-1"
@@ -200,8 +200,9 @@ export default function Page() {
                       <PanelRightClose className="w-4 h-4" />
                     </button>
                   </div>
-                  <ChatInterface></ChatInterface>
-                  
+                  <div className="flex-1 p-4 pt-0">
+                    <ChatInterface />
+                  </div>
                 </div>
               )}
               

@@ -212,12 +212,12 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
     <Sidebar {...props}>
       {/* <h1>GYST</h1> */}
       <SidebarContent>
-        {/* Tag Filter Section */}
-        <SidebarGroup>
-          <div className="flex flex-row select-none p-2">
-            <img src="/gyst-logo-black.png" alt="GYST Logo" className="h-6 w-6 mb-8" />
+          <div className="flex flex-row select-none p-4 sticky top-0 bg-background z-10 bb-1 w-full">
+            <img src="/gyst-logo-black.png" alt="GYST Logo" className="h-6 w-6 mb-2" />
             <h1 className="ml-2 font-semibold ">GYST</h1>
           </div>
+        {/* Tag Filter Section */}
+        <SidebarGroup>
           <SidebarGroupLabel className="flex items-center justify-between">
             <span className="flex items-center gap-2">
               <Tag className="w-4 h-4" />

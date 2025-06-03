@@ -321,13 +321,13 @@ const ChatInterface: React.FC = () => {
   );
   
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-y-scroll">
       
       {/* Messages Container */}
       <div 
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 b-none"
-        style={{ paddingBottom: messages.length === 1 ? '200px' : '120px' }}
+        className="flex-1 overflow-y-auto py-8 space-y-4 max-h-full"
+        style={{ paddingBottom: '20px' }}
       >
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
@@ -351,18 +351,18 @@ const ChatInterface: React.FC = () => {
       )}
       
       {/* Input Area */}
-      <div className="absolute bottom-0 left-0 right-0 flex flex-col justify-center items-center p-6 rounded-md">
+      <div className="flex-shrink-0 flex flex-col justify-center items-center p-6">
         {messages.length === 1 && (
           <p className="text-center text-2xl font-bold mb-8">How can I help?</p>
         )}
-        <div className="relative w-full max-w-4xl">
+        <div className="relative w-full">
           <textarea
             ref={textareaRef}
             value={inputValue}
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             placeholder="Type your message..."
-            className="w-full pr-12 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[50px]"
+            className="w-full pr-12 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent min-h-[50px]"
             disabled={isLoading || isTyping}
             aria-label="Type your message"
             rows={1}
