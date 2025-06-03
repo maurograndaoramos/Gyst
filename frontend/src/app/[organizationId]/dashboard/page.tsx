@@ -1,65 +1,175 @@
-"use client"
+'use client'
+import * as React from "react"
+import { FileDisplay } from "@/components/ui/fileDisplay"
+import { AppSidebar } from "@/components/app-sidebar"
+import { useSession } from "next-auth/react"
+import { useParams } from "next/navigation"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 
-import { useParams, useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
-import { useEffect } from 'react'
-import { UploadExample } from '@/components/upload-example'
+// Types for file data
+interface FileData {
+  id: string
+  title: string
+  originalFilename: string | null
+  filePath: string | null
+  content: string | null
+  createdAt: Date | null
+}
 
-import FileUploadComponent from '@/components/FileUploadComponent';
-
-export default function DashboardPage() {
+export default function OrganizationDashboard() {
+  const { data: session } = useSession()
   const params = useParams()
   const router = useRouter()
-  const { data: session, status } = useSession()
   const organizationId = params.organizationId as string
+  
+  // File state
+  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const [organizationFiles, setOrganizationFiles] = useState<FileData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Load organization files on mount
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
+    if (organizationId && session?.user) {
+      loadOrganizationFiles();
     }
-  }, [status, router])
+  }, [organizationId, session]);
 
-  if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
-  }
+  const loadOrganizationFiles = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/files?organizationId=${organizationId}`);
+      if (response.ok) {
+        const files = await response.json();
+        setOrganizationFiles(files);
+      }
+    } catch (error) {
+      console.error('Failed to load files:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (!session?.user) {
-    return null // Will redirect to login
-  }
+  // Handle file selection
+  const handleFileSelect = (file: FileData) => {
+    setSelectedFile(file);
+  };
 
-  const user = session.user
+  // Handle dropdown click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    router.push('/login');
+  };
+
+  // Generate breadcrumb from selected file
+  const pathSegments = selectedFile?.originalFilename 
+    ? selectedFile.originalFilename.split('/').filter(Boolean)
+    : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 p-8">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                Welcome to your Dashboard!
-              </h1>
-              <div className="space-y-2 text-gray-600">
-                <p><strong>Organization:</strong> {organizationId}</p>
-                <p><strong>User:</strong> {user.name || user.email}</p>
-                <p><strong>Email:</strong> {user.email}</p>
-                <p><strong>Role:</strong> {user.role || 'user'}</p>
-              </div>
-              <div className="mt-8">
-                <p className="text-sm text-gray-500">
-                  <UploadExample />
-                </p>
+    <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
+      <SidebarProvider>
+        <AppSidebar 
+          organizationId={organizationId}
+          files={organizationFiles}
+          onFileSelect={handleFileSelect}
+          loading={loading}
+        />
+        <SidebarInset>
+          <header className="border-b border-gray-400 sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink href={`/${organizationId}/dashboard`}>
+                      Dashboard
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  {pathSegments.map((segment, index) => {
+                    const isLast = index === pathSegments.length - 1;
+                    return (
+                      <React.Fragment key={index}>
+                        <BreadcrumbSeparator className="hidden md:block" />
+                        <BreadcrumbItem className="hidden md:block">
+                          {isLast ? (
+                            <BreadcrumbPage>{segment}</BreadcrumbPage>
+                          ) : (
+                            <BreadcrumbLink href="#">{segment}</BreadcrumbLink>
+                          )}
+                        </BreadcrumbItem>
+                      </React.Fragment>
+                    );
+                  })}
+                  {!selectedFile && (
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>No file selected</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">
+                Welcome, {session?.user?.name || 'User'}
+              </span>
+              <div className="relative" ref={dropdownRef}>
+                <div
+                  className="h-[50px] w-[50px] border border-gray-300 rounded-full bg-cover bg-center cursor-pointer"
+                  style={{ backgroundImage: "url(/user-2.png)" }}
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                ></div>
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+                    <div className="py-1">
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+          </header>
+          
+          <div className="w-full h-full flex">
+            <FileDisplay 
+              content={selectedFile?.content || ''} 
+            />
           </div>
-        </div>
-      </div>
-      <div>
-      <FileUploadComponent />
-    </div>
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   )
 }
