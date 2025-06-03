@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text, primaryKey, real, unique } from "drizzle-orm/sqlite-core"
+import { sql, SQL } from "drizzle-orm";
+import { integer, sqliteTable, text, primaryKey, real, unique, index, uniqueIndex, AnySQLiteColumn } from "drizzle-orm/sqlite-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 import { randomUUID } from "crypto"
 
@@ -54,7 +55,7 @@ export const accounts = sqliteTable("account", {
     id_token: text("id_token"),
     session_state: text("session_state"),
   },
-  (account) => [
+  (account: typeof accounts.$inferSelect) => [
     primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
@@ -76,7 +77,7 @@ export const verificationTokens = sqliteTable(
     token: text("token").notNull(),
     expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
   },
-  (verificationToken) => [
+  (verificationToken: typeof verificationTokens.$inferSelect) => [
     primaryKey({
       columns: [verificationToken.identifier, verificationToken.token],
     }),
@@ -99,7 +100,7 @@ export const authenticators = sqliteTable(
     }).notNull(),
     transports: text("transports"),
   },
-  (authenticator) => [
+  (authenticator: typeof authenticators.$inferSelect) => [
     primaryKey({
       columns: [authenticator.userId, authenticator.credentialID],
     }),
@@ -174,7 +175,7 @@ export const tags = sqliteTable("tag", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull().unique(),
+  name: text("name").notNull(), // .unique() removed here
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -182,12 +183,12 @@ export const tags = sqliteTable("tag", {
     .notNull()
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date())
-});
+}, (table: typeof tags) => ({
+  // Case-insensitive unique index on tag name
+  tagNameUniqueIdx: uniqueIndex("tag_name_unique_idx").on(lower(table.name)),
+}));
 
 export const documentTags = sqliteTable("document_tag", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
   documentId: text("documentId")
     .notNull()
     .references(() => documents.id, { onDelete: "cascade" }),
@@ -202,6 +203,9 @@ export const documentTags = sqliteTable("document_tag", {
     .notNull()
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date())
-}, (table) => ({
-  documentTagUnique: unique().on(table.documentId, table.tagId)
+}, (table: typeof documentTags) => ({
+  // Composite primary key
+  pk: primaryKey({ columns: [table.documentId, table.tagId] }),
+  // Index for querying by tagId
+  tagIdIdx: index("document_tag_tag_id_idx").on(table.tagId),
 }));

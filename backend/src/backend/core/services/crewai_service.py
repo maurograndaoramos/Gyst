@@ -54,56 +54,64 @@ class DocumentAnalysisService:
         )
         self.circuit_breaker = circuit_manager.get_breaker("document_analysis", breaker_config)
         
-        # Initialize legacy tools for backward compatibility
-        self._init_tools()
-        
-        # Initialize agents
+        # Initialize agents (tools will be assigned dynamically based on file type)
         self._init_agents()
     
-    def _init_tools(self):
-        """Initialize RAG tools for different file types."""
-        self.file_read_tool = FileReadTool()
-        self.pdf_search_tool = PDFSearchTool()
-        self.docx_search_tool = DOCXSearchTool()
+
     
     def _init_agents(self):
-        """Initialize CrewAI agents for document analysis."""
-        self.document_analyzer = Agent(
-            role="Document Analysis Expert",
-            goal="Analyze documents and extract meaningful, relevant tags that capture the essence and key topics of the content",
-            backstory="""You are an expert in document analysis and information extraction. 
+        """Initialize CrewAI agents for document analysis.
+        
+        Note: Tools will be assigned dynamically per analysis to avoid conflicts.
+        """
+        # Base agent configurations without tools (tools assigned per analysis)
+        self.base_analyzer_config = {
+            "role": "Document Analysis Expert",
+            "goal": "Analyze documents and extract meaningful, relevant tags that capture the essence and key topics of the content",
+            "backstory": """You are an expert in document analysis and information extraction. 
             You specialize in reading technical documentation, incident reports, troubleshooting guides, 
             and various types of organizational documents. Your expertise lies in identifying key themes, 
             technical concepts, processes, and issues within documents, then creating precise and useful tags 
             that will help teams quickly find and categorize information.""",
-            verbose=True,
-            allow_delegation=False,
-            tools=[self.file_read_tool, self.pdf_search_tool, self.docx_search_tool],
-            llm="gemini/gemini-2.0-flash-exp"
-        )
+            "verbose": True,
+            "allow_delegation": False,
+            "llm": "gemini/gemini-2.0-flash-exp"
+        }
         
-        self.tag_validator = Agent(
-            role="Tag Quality Validator",
-            goal="Validate and refine tags to ensure they are accurate, relevant, and follow consistent naming conventions",
-            backstory="""You are a quality assurance expert specializing in information taxonomy and tagging systems. 
+        self.base_validator_config = {
+            "role": "Tag Quality Validator",
+            "goal": "Validate and refine tags to ensure they are accurate, relevant, and follow consistent naming conventions",
+            "backstory": """You are a quality assurance expert specializing in information taxonomy and tagging systems. 
             You ensure that tags are meaningful, consistently formatted, and provide real value for document organization 
             and retrieval. You eliminate redundant tags, standardize naming conventions, and assign appropriate 
             confidence scores based on how well each tag represents the document content.""",
-            verbose=True,
-            allow_delegation=False,
-            llm="gemini/gemini-2.0-flash-exp"
-        )
+            "verbose": True,
+            "allow_delegation": False,
+            "llm": "gemini/gemini-2.0-flash-exp"
+        }
     
-    def _get_file_tool(self, file_path: str):
-        """Get the appropriate tool based on file extension."""
-        file_ext = Path(file_path).suffix.lower()
+    def _create_agents_for_document(self, document_path: str) -> tuple[Agent, Agent]:
+        """Create agents with appropriate tools for a specific document.
         
-        if file_ext == '.pdf':
-            return self.pdf_search_tool
-        elif file_ext == '.docx':
-            return self.docx_search_tool
-        else:  # .txt, .md, and other text files
-            return self.file_read_tool
+        This prevents tool conflicts by ensuring each agent only has access
+        to the tool appropriate for the specific file type.
+        """
+        # Get the appropriate tool for this document
+        tool = self.tool_factory.create_tool(document_path)
+        
+        # Create document analyzer with specific tool
+        document_analyzer = Agent(
+            tools=[tool],  # Only the appropriate tool for this file type
+            **self.base_analyzer_config
+        )
+        
+        # Create tag validator (no tools needed for validation)
+        tag_validator = Agent(
+            tools=[],  # Validator doesn't need file access tools
+            **self.base_validator_config
+        )
+        
+        return document_analyzer, tag_validator
     
     def _validate_file_path(self, document_path: str) -> str:
         """Validate and construct full file path."""
@@ -167,6 +175,9 @@ class DocumentAnalysisService:
             
             logger.info(f"Starting document analysis for {document_path} (request_id: {request_id})")
             
+            # Create agents with appropriate tools for this specific document
+            document_analyzer, tag_validator = self._create_agents_for_document(full_path)
+            
             # Create analysis task
             analysis_task = Task(
                 description=f"""
@@ -188,7 +199,7 @@ class DocumentAnalysisService:
                 
                 Return the results in a structured format with tag name, confidence score, category, and description.
                 """,
-                agent=self.document_analyzer,
+                agent=document_analyzer,
                 expected_output="A structured list of tags with confidence scores, categories, and descriptions"
             )
             
@@ -213,13 +224,13 @@ class DocumentAnalysisService:
                 
                 Return a refined list of the best tags with validated confidence scores.
                 """,
-                agent=self.tag_validator,
+                agent=tag_validator,
                 expected_output=f"A refined list of maximum {max_tags} high-quality tags with validated confidence scores, categories, and descriptions"
             )
             
             # Create and execute crew
             crew = Crew(
-                agents=[self.document_analyzer, self.tag_validator],
+                agents=[document_analyzer, tag_validator],
                 tasks=[analysis_task, validation_task],
                 verbose=True
             )
@@ -304,6 +315,9 @@ class DocumentAnalysisService:
     async def _generate_summary(self, file_path: str) -> str:
         """Generate a summary of the document."""
         try:
+            # Create dedicated agent for summary generation
+            summary_analyzer, _ = self._create_agents_for_document(file_path)
+            
             # Create summary task
             summary_task = Task(
                 description=f"""
@@ -315,12 +329,12 @@ class DocumentAnalysisService:
                 - Be useful for quickly understanding document content
                 - Focus on actionable information or key concepts
                 """,
-                agent=self.document_analyzer,
+                agent=summary_analyzer,
                 expected_output="A concise, informative summary of the document"
             )
             
             crew = Crew(
-                agents=[self.document_analyzer],
+                agents=[summary_analyzer],
                 tasks=[summary_task],
                 verbose=False
             )
@@ -593,6 +607,9 @@ Return the top {max_tags} most valuable tags with validated confidence scores.""
     async def _generate_enhanced_summary(self, main_doc: str, similar_docs: List[str]) -> str:
         """Generate enhanced summary considering similar document context."""
         try:
+            # Create dedicated agent for enhanced summary generation
+            enhanced_summary_analyzer, _ = self._create_agents_for_document(main_doc)
+            
             similar_doc_context = ""
             if similar_docs:
                 doc_names = [Path(doc).name for doc in similar_docs[:3]]
@@ -609,11 +626,11 @@ The summary should:
 - Focus on actionable information and key concepts
 - Mention any cross-references or related themes found in similar documents
                 """,
-                agent=self.document_analyzer,
+                agent=enhanced_summary_analyzer,
                 expected_output="Enhanced summary with contextual insights"
             )
             
-            crew = Crew(agents=[self.document_analyzer], tasks=[summary_task], verbose=False)
+            crew = Crew(agents=[enhanced_summary_analyzer], tasks=[summary_task], verbose=False)
             result = crew.kickoff()
             return str(result)
             
