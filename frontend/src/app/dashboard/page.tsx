@@ -1,4 +1,5 @@
 'use client'
+
 import * as React from "react"
 import { FileDisplay } from "@/components/ui/fileDisplay";
 import { AppSidebar } from "@/components/app-sidebar"
