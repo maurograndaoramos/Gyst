@@ -4,8 +4,9 @@ import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/auth/loading-spinner'
 import { UserHeader } from '@/components/user-header'
 import { UploadSection } from '@/components/upload-section'
+import LandingPage from './landing/page'
 
-export default function Dashboard() {
+export default function HomePage() {
   const { isLoading, isAuthenticated, role } = useAuth()
 
   if (isLoading) {
@@ -16,17 +17,12 @@ export default function Dashboard() {
     )
   }
 
+  // Show landing page for unauthenticated users
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p>Please log in to access the dashboard.</p>
-        </div>
-      </div>
-    )
+    return <LandingPage />
   }
 
+  // Show dashboard for authenticated users
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header with role indicators */}

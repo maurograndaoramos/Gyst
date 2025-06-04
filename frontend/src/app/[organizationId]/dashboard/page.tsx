@@ -214,7 +214,7 @@ export default function Page() {
                   </button>
                 </div>
                 <div className="flex-1 p-4 pt-0 overflow-y-auto">
-                  <ChatInterface />
+                  <ChatInterface key="gyst-chat-stable" />
                 </div>
               </div>
               

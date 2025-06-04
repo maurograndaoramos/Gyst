@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, AlertCircle, User, Bot, Grip, X } from 'lucide-react';
+import { useTypingAnimation } from '@/hooks/useTypingAnimation';
 
 // Types
 interface Message {
@@ -192,52 +193,29 @@ const ChatInterface: React.FC = () => {
     }).format(timestamp);
   };
 
-  // Progressive text reveal component
-  const TypingText: React.FC<TypingTextProps> = ({ text, onComplete }) => {
-    const [displayedText, setDisplayedText] = useState<string>('');
-    const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const textRef = useRef<string>(text);
-    const isActiveRef = useRef<boolean>(true);
-    
-    useEffect(() => {
-      textRef.current = text;
-      setDisplayedText('');
-      setCurrentIndex(0);
-      isActiveRef.current = true;
-    }, [text]);
-    
-    useEffect(() => {
-      if (!isActiveRef.current) return;
-      
-      if (currentIndex < textRef.current.length) {
-        const timer = setTimeout(() => {
-          if (!isActiveRef.current) return;
-          const nextChar = textRef.current[currentIndex];
-          setDisplayedText(prev => prev + nextChar);
-          setCurrentIndex(prev => prev + 1);
-        }, 30 + Math.random() * 40);
-        
-        return () => clearTimeout(timer);
-      } else if (currentIndex === textRef.current.length && textRef.current.length > 0) {
-        onComplete();
-      }
-    }, [currentIndex, onComplete]);
-    
-    useEffect(() => {
-      return () => {
-        isActiveRef.current = false;
-      };
-    }, []);
+  // Optimized progressive text reveal component using custom hook
+  const TypingText: React.FC<TypingTextProps> = React.memo(({ text, onComplete }) => {
+    const { displayedText, isAnimating, progress } = useTypingAnimation({
+      text,
+      onComplete,
+      speed: { min: 30, max: 70 }
+    });
     
     return (
-      <div 
-        dangerouslySetInnerHTML={{ 
-          __html: renderMarkdown(displayedText) 
-        }}
-        className="text-sm leading-relaxed"
-      />
+      <div className="relative">
+        <div 
+          dangerouslySetInnerHTML={{ 
+            __html: renderMarkdown(displayedText) 
+          }}
+          className="text-sm leading-relaxed"
+        />
+        {/* Optional: Add a subtle progress indicator */}
+        {isAnimating && (
+          <div className="inline-block w-2 h-4 bg-current opacity-75 animate-pulse ml-1"></div>
+        )}
+      </div>
     );
-  };
+  });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     setInputValue(e.target.value);
@@ -394,4 +372,5 @@ const ChatInterface: React.FC = () => {
   );
 };
 
-export default ChatInterface;
+// Memoize the entire component to prevent re-renders from parent state changes
+export default React.memo(ChatInterface);
