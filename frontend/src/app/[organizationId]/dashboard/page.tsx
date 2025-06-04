@@ -188,7 +188,8 @@ export default function Page() {
                     setIsCollapsed(false);
                     setWidth(450);
                   }}
-                  className="fixed top-[5rem] right-4 w-10 h-10 bg-gray-100 border border-gray-400 rounded-md flex items-center justify-center hover:bg-gray-200 transition-colors shadow-sm z-50"
+                  className="fixed top-[5rem] right-6 w-12 h-12 bg-gray-100 border border-gray-400 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors shadow-lg z-50"
+                  // title="Expand GYST Sidebar"
                 >
                   <img src="/gyst-remake-flip.png" alt="GYST Logo" className="h-6 w-6" />
                 </button>
@@ -204,12 +205,12 @@ export default function Page() {
                 <div className="flex justify-between gap-2 p-4 pb-0">
                   <span className="text-lg font-bold">GYST-AI</span>
                   <button
-                    className="bg-gray-300 hover:bg-gray-400 text-black rounded px-2 py-1"
+                    className="text-gray-500 hover:bg-gray-300 transition-colors w-6 h-6 rounded-full flex items-center justify-center"
                     onClick={() => {
                       setIsCollapsed(true);
                     }}
                   >
-                    <PanelRightClose className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="flex-1 p-4 pt-0 overflow-y-auto">
