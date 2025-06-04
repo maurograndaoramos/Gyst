@@ -1,6 +1,23 @@
-import { integer, sqliteTable, text, primaryKey } from "drizzle-orm/sqlite-core"
+import { sql, SQL } from "drizzle-orm";
+import { integer, sqliteTable, text, primaryKey, real, unique, index, uniqueIndex, AnySQLiteColumn } from "drizzle-orm/sqlite-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 import { randomUUID } from "crypto"
+
+// Define organizations table first as other tables will reference it
+export const organizations = sqliteTable("organization", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  name: text("name").notNull().unique(),
+  owner_id: text("owner_id").notNull(), // Remove circular reference for now
+  created_at: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});
 
 export const users = sqliteTable("user", {
   id: text("id")
@@ -38,7 +55,7 @@ export const accounts = sqliteTable("account", {
     id_token: text("id_token"),
     session_state: text("session_state"),
   },
-  (account) => [
+  (account: typeof accounts.$inferSelect) => [
     primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
@@ -60,7 +77,7 @@ export const verificationTokens = sqliteTable(
     token: text("token").notNull(),
     expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
   },
-  (verificationToken) => [
+  (verificationToken: typeof verificationTokens.$inferSelect) => [
     primaryKey({
       columns: [verificationToken.identifier, verificationToken.token],
     }),
@@ -83,30 +100,14 @@ export const authenticators = sqliteTable(
     }).notNull(),
     transports: text("transports"),
   },
-  (authenticator) => [
+  (authenticator: typeof authenticators.$inferSelect) => [
     primaryKey({
       columns: [authenticator.userId, authenticator.credentialID],
     }),
   ]
 )
 
-// Define organizations table first as other tables will reference it
-export const organizations = sqliteTable("organization", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => randomUUID()),
-  name: text("name").notNull().unique(),
-  owner_id: text("owner_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }), // Assuming owner_id refers to a user
-  created_at: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" })
-    .notNull()
-    .$defaultFn(() => new Date())
-    .$onUpdate(() => new Date()),
-});
+
 
 // Example business tables that require organization filtering
 export const projects = sqliteTable("project", {
@@ -169,3 +170,42 @@ export const auditLogs = sqliteTable("audit_logs", {
   errorMessage: text("errorMessage"),
   timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull()
 })
+
+export const tags = sqliteTable("tag", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(), // .unique() removed here
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date())
+}, (table: typeof tags) => ({
+  // Case-insensitive unique index on tag name
+  tagNameUniqueIdx: uniqueIndex("tag_name_unique_idx").on(lower(table.name)),
+}));
+
+export const documentTags = sqliteTable("document_tag", {
+  documentId: text("documentId")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  tagId: text("tagId")
+    .notNull()
+    .references(() => tags.id, { onDelete: "cascade" }),
+  confidence: real("confidence").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date())
+}, (table: typeof documentTags) => ({
+  // Composite primary key
+  pk: primaryKey({ columns: [table.documentId, table.tagId] }),
+  // Index for querying by tagId
+  tagIdIdx: index("document_tag_tag_id_idx").on(table.tagId),
+}));

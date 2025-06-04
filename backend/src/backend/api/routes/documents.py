@@ -1,5 +1,6 @@
 """Document analysis endpoints."""
 import logging
+from datetime import datetime
 from typing import Union
 
 from fastapi import APIRouter, HTTPException, status
@@ -12,7 +13,7 @@ from ...schema.document_analysis import (
     AnalyzeDocumentErrorResponse,
     ProcessingStatusResponse
 )
-from ...core.crewai_service import get_document_analysis_service
+from ...core.services import get_document_analysis_service
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -225,4 +226,69 @@ async def health_check():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Document analysis service is not healthy: {str(e)}"
+        )
+
+
+@router.get(
+    "/circuit-breakers",
+    summary="Circuit breaker status",
+    description="Get status of all circuit breakers"
+)
+async def get_circuit_breaker_status():
+    """
+    Get the status of all circuit breakers.
+    
+    Returns:
+        dict: Circuit breaker states and statistics
+    """
+    try:
+        from ...core.error_handling.circuit_breaker import get_circuit_breaker_manager
+        
+        circuit_manager = get_circuit_breaker_manager()
+        states = circuit_manager.get_all_states()
+        
+        return {
+            "circuit_breakers": states,
+            "total_breakers": len(states),
+            "healthy_breakers": len([s for s in states.values() if s["state"] == "closed"]),
+            "open_breakers": len([s for s in states.values() if s["state"] == "open"]),
+            "half_open_breakers": len([s for s in states.values() if s["state"] == "half_open"])
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get circuit breaker status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get circuit breaker status: {str(e)}"
+        )
+
+
+@router.post(
+    "/circuit-breakers/reset",
+    summary="Reset circuit breakers",
+    description="Reset all circuit breakers to closed state"
+)
+async def reset_circuit_breakers():
+    """
+    Reset all circuit breakers to closed state.
+    
+    Returns:
+        dict: Reset confirmation
+    """
+    try:
+        from ...core.error_handling.circuit_breaker import get_circuit_breaker_manager
+        
+        circuit_manager = get_circuit_breaker_manager()
+        await circuit_manager.reset_all()
+        
+        return {
+            "message": "All circuit breakers reset successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to reset circuit breakers: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reset circuit breakers: {str(e)}"
         )

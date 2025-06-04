@@ -28,10 +28,9 @@ export async function POST(request: NextRequest) {
       email, 
       password, 
       name,
-      role: role || 'user', // Set role, defaulting to 'user' if not specified
     })
 
-    if (!user) {
+    if (!user || !user.id) {
       return NextResponse.json(
         { error: "Failed to create user" },
         { status: 500 }
@@ -40,37 +39,41 @@ export async function POST(request: NextRequest) {
 
     // Create organization with user as owner
     const organizationId = randomUUID()
-    const [organization] = await db
+    const organizationResult = await db
       .insert(organizations)
       .values({
-        id: organizationId,
         name: company,
         owner_id: user.id,
-        created_at: new Date(),
-        updated_at: new Date(),
       })
       .returning()
-
-    if (!organization) {
+    
+    if (!Array.isArray(organizationResult) || organizationResult.length === 0) {
       // Rollback user creation if organization creation fails
-      await db
-        .delete(users)
-        .where(eq(users.id, user.id))
+      if (user.id) {
+        await db
+          .delete(users)
+          .where(eq(users.id, user.id))
+      }
       
       return NextResponse.json(
         { error: "Failed to create organization" },
         { status: 500 }
       )
     }
+    
+    const organization = organizationResult[0]
+
+
 
     // Update user with organization ID
-    await db
-      .update(users)
-      .set({ 
-        organizationId: organization.id,
-        role: role || 'user', // Ensure role is set
-      })
-      .where(eq(users.id, user.id))
+    if (user.id) {
+      await db
+        .update(users)
+        .set({ 
+          organizationId: organization.id,
+        })
+        .where(eq(users.id, user.id))
+    }
 
     return NextResponse.json(
       { 
@@ -80,7 +83,6 @@ export async function POST(request: NextRequest) {
           email: user.email,
           name: user.name,
           organizationId: organization.id,
-          role: role || 'user',
         }
       },
       { status: 201 }
