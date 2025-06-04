@@ -188,9 +188,9 @@ export default function Page() {
                     setIsCollapsed(false);
                     setWidth(450);
                   }}
-                  className="fixed top-[5rem] right-4 w-8 h-8 bg-gray-100 border border-gray-400 rounded-md flex items-center justify-center hover:bg-gray-200 transition-colors shadow-sm z-50"
+                  className="fixed top-[5rem] right-4 w-10 h-10 bg-gray-100 border border-gray-400 rounded-md flex items-center justify-center hover:bg-gray-200 transition-colors shadow-sm z-50"
                 >
-                  <PanelRightOpen className="w-4 h-4" />
+                  <img src="/gyst-remake-flip.png" alt="GYST Logo" className="h-6 w-6" />
                 </button>
               )}
               
