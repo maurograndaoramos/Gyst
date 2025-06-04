@@ -326,7 +326,7 @@ const ChatInterface: React.FC = () => {
       {/* Messages Container */}
       <div 
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto py-8 space-y-4 max-h-full"
+        className="flex-1 overflow-y-auto p-4 space-y-4 max-h-full"
         style={{ paddingBottom: '20px' }}
       >
         {messages.map((message) => (
