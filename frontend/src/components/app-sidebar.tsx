@@ -213,7 +213,7 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
       {/* <h1>GYST</h1> */}
       <SidebarContent>
           <div className="flex flex-row select-none p-4 sticky top-0 bg-background z-10 bb-1 w-full">
-            <img src="/gyst-logo-black.png" alt="GYST Logo" className="h-6 w-6 mb-2" />
+            <img src="/gyst-remake-flip.png" alt="GYST Logo" className="h-6 w-6 mb-2" />
             <h1 className="ml-2 font-semibold ">GYST</h1>
           </div>
         {/* Tag Filter Section */}
@@ -404,7 +404,7 @@ function Tree({
     <SidebarMenuItem>
       <Collapsible
         className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
-        defaultOpen={name === "components" || name === "ui"}
+        // defaultOpen={name === "components" || name === "ui"} Controlls setting of which folders are open by default
       >
         <CollapsibleTrigger asChild>
           <SidebarMenuButton>

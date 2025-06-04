@@ -25,7 +25,7 @@ import ChatInterface from "@/components/chatInterface";
 const fileText = "lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.           <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ad perferendis itaque vel necessitatibus dignissimos maxime non laborum repellat quaerat sunt qui dolorem perspiciatis, voluptates voluptatibus voluptate, explicabo velit esse fuga eius amet temporibus ipsum fugit placeat deleniti? Sequi recusandae hic animi quasi id obcaecati ratione deserunt reprehenderit. Velit quo et hic itaque, cum exercitationem quidem dolorum praesentium quia excepturi quibusdam molestias ea autem voluptate rem corrupti nobis asperiores mollitia. Inventore officiis dolor quas, rem sunt, tenetur, vero qui ratione maiores in distinctio. Eum vitae temporibus modi iusto exercitationem maxime optio facilis, cumque magni! Sequi, ducimus quam dolor esse amet aliquid autem voluptas maxime, perferendis aspernatur officia modi nulla tenetur quo dignissimos ipsum accusantium? Laboriosam autem labore sed asperiores, obcaecati eius impedit eum, quae similique cumque nesciunt reprehenderit expedita? Praesentium magni laborum non. Dicta quidem dignissimos reprehenderit tenetur rem beatae unde voluptatum ducimus enim porro quas cumque ratione praesentium id, recusandae quibusdam repellendus voluptatibus illum maiores adipisci similique dolores! A unde distinctio vitae et facilis tempora excepturi sint at libero accusamus quaerat perspiciatis labore pariatur iusto suscipit eos porro dolores, modi aliquid? Quibusdam harum, quos perferendis accusantium, in ipsum sint numquam commodi sapiente cum corrupti voluptatibus quia quas excepturi nostrum, distinctio consequatur dolore qui? Consequatur molestiae eius quis, voluptatibus, quaerat esse nisi eligendi earum, odit provident culpa recusandae magnam autem natus. Eligendi voluptates tempora vel cumque non vero accusamus provident aperiam ut velit adipisci eos eum nam dignissimos aliquid quasi harum, excepturi commodi exercitationem temporibus earum ratione quo recusandae autem. Impedit culpa inventore tempora veniam deserunt libero, nobis distinctio et nesciunt eos eveniet odit quaerat neque laborum magni molestiae exercitationem fuga? Rerum dolorum ab enim vero quidem delectus quibusdam quod quo, quisquam fugiat necessitatibus harum sequi doloremque, reprehenderit accusamus error sunt, dolorem deserunt labore. Illum impedit architecto, sapiente nobis tempora fuga. Doloremque beatae voluptas, eius magni ipsam est recusandae alias quam distinctio exercitationem sapiente unde iusto officia in, cum corrupti ex laboriosam ducimus porro eligendi, maxime nulla at explicabo ut. Ipsum voluptates quas, laudantium minima magnam recusandae quod dolor libero ullam nemo eligendi ducimus rem maiores in reprehenderit hic inventore aut, asperiores qui consectetur praesentium cum tenetur earum? Quis porro blanditiis deleniti laudantium cum ab nobis ut officiis non dolorem sit dignissimos harum cumque libero eos aperiam saepe officia illum necessitatibus vel hic, esse velit magni! Ratione quo, quae quasi libero impedit corrupti exercitationem molestias amet officiis fuga animi alias soluta dolor suscipit magni iure minima placeat eos incidunt? Quod vero id ipsam, consectetur officiis, maiores porro iusto nemo rerum quas in et numquam animi ullam tenetur quia optio pariatur cumque, nesciunt perferendis minima odit explicabo hic a! Ut hic doloribus tempore debitis nisi laborum eaque sit quidem temporibus mollitia placeat tenetur eveniet, enim qui sunt rem cum earum iste facere quis quod inventore. Quasi incidunt vero saepe iusto eligendi eius doloremque dolore eos rem ullam, porro at ab neque velit tenetur nulla aliquam nihil, ipsum nam ea eum! Ipsa quo deserunt delectus dolor soluta vel in. Voluptate ea incidunt dolorem.</p>          <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ad perferendis itaque vel necessitatibus dignissimos maxime non laborum repellat quaerat sunt qui dolorem perspiciatis, voluptates voluptatibus voluptate, explicabo velit esse fuga eius amet temporibus ipsum fugit placeat deleniti? Sequi recusandae hic animi quasi id obcaecati ratione deserunt reprehenderit. Velit quo et hic itaque, cum exercitationem quidem dolorum praesentium quia excepturi quibusdam molestias ea autem voluptate rem corrupti nobis asperiores mollitia. Inventore officiis dolor quas, rem sunt, tenetur, vero qui ratione maiores in distinctio. Eum vitae temporibus modi iusto exercitationem maxime optio facilis, cumque magni! Sequi, ducimus quam dolor esse amet aliquid autem voluptas maxime, perferendis aspernatur officia modi nulla tenetur quo dignissimos ipsum accusantium? Laboriosam autem labore sed asperiores, obcaecati eius impedit eum, quae similique cumque nesciunt reprehenderit expedita? Praesentium magni laborum non. Dicta quidem dignissimos reprehenderit tenetur rem beatae unde voluptatum ducimus enim porro quas cumque ratione praesentium id, recusandae quibusdam repellendus voluptatibus illum maiores adipisci similique dolores! A unde distinctio vitae et facilis tempora excepturi sint at libero accusamus quaerat perspiciatis labore pariatur iusto suscipit eos porro dolores, modi aliquid? Quibusdam harum, quos perferendis accusantium, in ipsum sint numquam commodi sapiente cum corrupti voluptatibus quia quas excepturi nostrum, distinctio consequatur dolore qui? Consequatur molestiae eius quis, voluptatibus, quaerat esse nisi eligendi earum, odit provident culpa recusandae magnam autem natus. Eligendi voluptates tempora vel cumque non vero accusamus provident aperiam ut velit adipisci eos eum nam dignissimos aliquid quasi harum, excepturi commodi exercitationem temporibus earum ratione quo recusandae autem. Impedit culpa inventore tempora veniam deserunt libero, nobis distinctio et nesciunt eos eveniet odit quaerat neque laborum magni molestiae exercitationem fuga? Rerum dolorum ab enim vero quidem delectus quibusdam quod quo, quisquam fugiat necessitatibus harum sequi doloremque, reprehenderit accusamus error sunt, dolorem deserunt labore. Illum impedit architecto, sapiente nobis tempora fuga. Doloremque beatae voluptas, eius magni ipsam est recusandae alias quam distinctio exercitationem sapiente unde iusto officia in, cum corrupti ex laboriosam ducimus porro eligendi, maxime nulla at explicabo ut. Ipsum voluptates quas, laudantium minima magnam recusandae quod dolor libero ullam nemo eligendi ducimus rem maiores in reprehenderit hic inventore aut, asperiores qui consectetur praesentium cum tenetur earum? Quis porro blanditiis deleniti laudantium cum ab nobis ut officiis non dolorem sit dignissimos harum cumque libero eos aperiam saepe officia illum necessitatibus vel hic, esse velit magni! Ratione quo, quae quasi libero impedit corrupti exercitationem molestias amet officiis fuga animi alias soluta dolor suscipit magni iure minima placeat eos incidunt? Quod vero id ipsam, consectetur officiis, maiores porro iusto nemo rerum quas in et numquam animi ullam tenetur quia optio pariatur cumque, nesciunt perferendis minima odit explicabo hic a! Ut hic doloribus tempore debitis nisi laborum eaque sit quidem temporibus mollitia placeat tenetur eveniet, enim qui sunt rem cum earum iste facere quis quod inventore. Quasi incidunt vero saepe iusto eligendi eius doloremque dolore eos rem ullam, porro at ab neque velit tenetur nulla aliquam nihil, ipsum nam ea eum! Ipsa quo deserunt delectus dolor soluta vel in. Voluptate ea incidunt dolorem.</p>"
 
 export default function Page() {
-  const [width, setWidth] = useState(350);
+  const [width, setWidth] = useState(450);
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -147,8 +147,8 @@ export default function Page() {
               <div className="relative" ref={dropdownRef}>
                 <div
                   id="profile-pic"
-                  className="h-[50px] w-[50px] border border-gray-300 rounded-full bg-cover bg-center cursor-pointer"
-                  style={{ backgroundImage: "url(/user-2.png)" }}
+                  className="h-[40px] w-[40px] border border-gray-300 rounded-full bg-contain bg-center cursor-pointer"
+                  style={{ backgroundImage: "url(/user-3.png)" }}
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 ></div>
                 {isDropdownOpen && (
@@ -168,14 +168,17 @@ export default function Page() {
           </header>
           <div className="w-full h-full flex">
             <FileDisplay content={fileText} />
-            {/* Resizable sidebar container */}
-            <div className="relative h-full flex-shrink-0" style={{ width: isCollapsed ? 0 : width }}>
+            {/* Resizable sidebar container with smooth transition */}
+            <div 
+              className="relative h-full flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden" 
+              style={{ width: isCollapsed ? 0 : width }}
+            >
               {/* Collapse button when sidebar is collapsed */}
               {isCollapsed && (
                 <button
                   onClick={() => {
                     setIsCollapsed(false);
-                    setWidth(350);
+                    setWidth(450);
                   }}
                   className="fixed top-[5rem] right-4 w-8 h-8 bg-gray-100 border border-gray-400 rounded-md flex items-center justify-center hover:bg-gray-200 transition-colors shadow-sm z-50"
                 >
@@ -183,28 +186,29 @@ export default function Page() {
                 </button>
               )}
               
-              {/* Sidebar content */}
-              {!isCollapsed && (
-                <div
-                  id="gyst-sidebar"
-                  className="w-full h-[calc(100vh-4rem)] bg-gray-100 border border-gray-400 box-border flex flex-col"
-                >
-                  <div className="flex justify-between gap-2 p-4 pb-0">
-                    <span className="text-lg font-bold">GYST-AI</span>
-                    <button
-                      className="bg-gray-300 hover:bg-gray-400 text-black rounded px-2 py-1"
-                      onClick={() => {
-                        setIsCollapsed(true);
-                      }}
-                    >
-                      <PanelRightClose className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="flex-1 p-4 pt-0">
-                    <ChatInterface />
-                  </div>
+              {/* Sidebar content - always rendered but hidden when collapsed */}
+              <div
+                id="gyst-sidebar"
+                className={`w-full h-[calc(100vh-4rem)] bg-gray-100 border border-gray-400 box-border flex flex-col transition-opacity duration-300 ${
+                  isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                }`}
+                style={{ width: width }}
+              >
+                <div className="flex justify-between gap-2 p-4 pb-0">
+                  <span className="text-lg font-bold">GYST-AI</span>
+                  <button
+                    className="bg-gray-300 hover:bg-gray-400 text-black rounded px-2 py-1"
+                    onClick={() => {
+                      setIsCollapsed(true);
+                    }}
+                  >
+                    <PanelRightClose className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
+                <div className="flex-1 p-4 pt-0 overflow-y-auto">
+                  <ChatInterface />
+                </div>
+              </div>
               
               {/* Resize handle - positioned outside the sidebar content */}
               {!isCollapsed && (
