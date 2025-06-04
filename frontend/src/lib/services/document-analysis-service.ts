@@ -34,6 +34,9 @@ export class DocumentAnalysisService {
       }
 
       // 2. Get absolute file path
+      if (!metadata.filePath) {
+        throw new Error('Document file path not found');
+      }
       const absolutePath = this.fileStorage.getAbsolutePath(metadata.filePath);
 
       // 3. Call Python service for analysis
@@ -56,8 +59,20 @@ export class DocumentAnalysisService {
       const result: AnalysisResult = await response.json();
 
       // 4. Update document metadata with new tags
+      if (!metadata.originalFilename || !metadata.mimeType || metadata.size === null) {
+        throw new Error('Document metadata incomplete');
+      }
+      
       await this.metadataService.storeDocumentMetadata({
-        ...metadata,
+        organizationId: metadata.organizationId,
+        projectId: metadata.projectId || undefined,
+        title: metadata.title,
+        content: metadata.content || undefined,
+        filePath: metadata.filePath, // Already validated above
+        originalFilename: metadata.originalFilename,
+        mimeType: metadata.mimeType,
+        size: metadata.size,
+        createdBy: metadata.createdBy,
         tags: result.tags,
       });
 
@@ -66,4 +81,4 @@ export class DocumentAnalysisService {
       throw error;
     }
   }
-} 
+}

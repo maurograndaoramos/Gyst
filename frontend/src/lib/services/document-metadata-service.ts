@@ -102,7 +102,7 @@ export class DocumentMetadataService {
       if (error instanceof DatabaseError) {
         throw error;
       }
-      throw new DatabaseError(`Failed to store document metadata: ${error.message}`);
+      throw new DatabaseError(`Failed to store document metadata: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -121,7 +121,7 @@ export class DocumentMetadataService {
         throw new DatabaseError("Document not found");
       }
 
-      const documentTags = await db
+      const docTags = await db
         .select({
           tag: tags,
           confidence: documentTags.confidence,
@@ -133,7 +133,7 @@ export class DocumentMetadataService {
 
       return {
         ...document,
-        tags: documentTags.map((dt) => ({
+        tags: docTags.map((dt) => ({
           name: dt.tag.name,
           confidence: dt.confidence,
         })),
@@ -142,7 +142,7 @@ export class DocumentMetadataService {
       if (error instanceof DatabaseError) {
         throw error;
       }
-      throw new DatabaseError(`Failed to retrieve document metadata: ${error.message}`);
+      throw new DatabaseError(`Failed to retrieve document metadata: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-} 
+}
