@@ -167,10 +167,18 @@ export default function Page() {
             </div>
           </header>
           <div className="w-full h-full flex">
-            <FileDisplay content={fileText} />
-            {/* Resizable sidebar container with smooth transition */}
             <div 
-              className="relative h-full flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden" 
+              className="flex-1 h-full"
+              style={{ marginRight: isCollapsed ? 0 : width }}
+            >
+              <FileDisplay content={fileText} />
+            </div>
+            
+            {/* Fixed positioned sidebar anchored to right side */}
+            <div 
+              className={`fixed top-16 right-0 h-[calc(100vh-4rem)] overflow-hidden z-40 ${
+                !isResizing ? 'transition-all duration-300 ease-in-out' : ''
+              }`}
               style={{ width: isCollapsed ? 0 : width }}
             >
               {/* Collapse button when sidebar is collapsed */}
@@ -189,10 +197,9 @@ export default function Page() {
               {/* Sidebar content - always rendered but hidden when collapsed */}
               <div
                 id="gyst-sidebar"
-                className={`w-full h-[calc(100vh-4rem)] bg-gray-100 border border-gray-400 box-border flex flex-col transition-opacity duration-300 ${
+                className={`w-full h-full bg-gray-100 border border-gray-400 box-border flex flex-col transition-opacity duration-300 ${
                   isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 }`}
-                style={{ width: width }}
               >
                 <div className="flex justify-between gap-2 p-4 pb-0">
                   <span className="text-lg font-bold">GYST-AI</span>
@@ -210,11 +217,11 @@ export default function Page() {
                 </div>
               </div>
               
-              {/* Resize handle - positioned outside the sidebar content */}
+              {/* Resize handle - positioned on the left edge of the sidebar */}
               {!isCollapsed && (
                 <div
                   id="sidebar-resize-handle"
-                  className="absolute top-0 left-0 w-1 h-full cursor-ew-resize hover:bg-gray-200 bg-gray-300 transition-colors"
+                  className="absolute top-0 left-0 w-1 h-full cursor-ew-resize hover:bg-gray-200 bg-gray-300 transition-colors z-10"
                   onMouseDown={handleMouseDown}
                 ></div>
               )}
