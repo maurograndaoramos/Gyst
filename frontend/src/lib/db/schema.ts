@@ -185,7 +185,7 @@ export const tags = sqliteTable("tag", {
     .$onUpdate(() => new Date())
 }, (table: typeof tags) => ({
   // Case-insensitive unique index on tag name
-  tagNameUniqueIdx: uniqueIndex("tag_name_unique_idx").on(lower(table.name)),
+  tagNameUniqueIdx: uniqueIndex("tag_name_unique_idx").on(sql`lower(${table.name})`),
 }));
 
 export const documentTags = sqliteTable("document_tag", {
