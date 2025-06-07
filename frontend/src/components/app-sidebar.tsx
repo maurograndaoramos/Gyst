@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ChevronRight, File, Folder, Search, X, History, Tag, XCircle } from "lucide-react"
+import { File, Search, X, Tag } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -12,67 +12,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
   SidebarRail,
 } from "@/components/ui/sidebar"
-
-// This is sample data.
-const data = {
-  changes: [
-    {
-      file: "README.md",
-      state: "M",
-    },
-    {
-      file: "api/hello/route.ts",
-      state: "U",
-    },
-    {
-      file: "app/layout.tsx",
-      state: "M",
-    },
-  ],
-  tree: [
-    [
-      "app",
-      [
-        "api",
-        ["hello", ["route.ts"]],
-        "page.tsx",
-        "layout.tsx",
-        ["blog", ["page.tsx"]],
-      ],
-    ],
-    [
-      "components",
-      ["ui", "button.tsx", "card.tsx"],
-      "header.tsx",
-      "footer.tsx",
-    ],
-    ["lib", ["util.ts"]],
-    ["public", "favicon.ico", "vercel.svg"],
-    ".eslintrc.json",
-    ".gitignore",
-    "next.config.js",
-    "tailwind.config.js",
-    "package.json",
-    "README.md",
-  ],
-}
 
 // Mock data for tags
 const mockTags = [
@@ -98,30 +47,65 @@ const highlightMatch = (text: string, query: string) => {
   );
 };
 
-// Helper function to flatten tree structure for search
-const flattenTree = (tree: any[]): string[] => {
-  return tree.reduce((acc: string[], item) => {
-    if (Array.isArray(item)) {
-      const [name, ...children] = item;
-      return [...acc, name, ...flattenTree(children)];
-    }
-    return [...acc, item];
-  }, []);
-};
-
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  onFileSelect?: (filePath: string) => void;
+// Types for file data
+interface FileData {
+  id: string
+  title: string
+  originalFilename: string | null
+  filePath: string | null
+  content: string | null
+  createdAt: Date | null
 }
 
-export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  organizationId: string
+  files: FileData[]
+  onFileSelect: (file: FileData) => void
+  loading: boolean
+}
+
+export function AppSidebar({ organizationId, files, onFileSelect, loading, ...props }: AppSidebarProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [tagSearchQuery, setTagSearchQuery] = React.useState("");
   const [selectedTags, setSelectedTags] = React.useState<number[]>([]);
   const [filterLogic, setFilterLogic] = React.useState<"AND" | "OR">("OR");
   const [sortBy, setSortBy] = React.useState<"count" | "name">("count");
   const [selectedFile, setSelectedFile] = React.useState<string>("");
+  const [searchResults, setSearchResults] = React.useState<FileData[]>([]);
+  const [isSearching, setIsSearching] = React.useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
   const debouncedTagSearch = useDebounce(tagSearchQuery, 300);
+
+  // Perform search with API when there's a query
+  React.useEffect(() => {
+    if (debouncedSearch && organizationId) {
+      performSearch(debouncedSearch);
+    } else {
+      setSearchResults([]);
+      setIsSearching(false);
+    }
+  }, [debouncedSearch, organizationId]);
+
+  const performSearch = async (query: string) => {
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&organizationId=${organizationId}&highlight=true`);
+      if (response.ok) {
+        const searchResponse = await response.json();
+        setSearchResults(searchResponse.results);
+      }
+    } catch (error) {
+      console.error('Search failed:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Filter local files for display when no search query
+  const displayFiles = React.useMemo(() => {
+    if (debouncedSearch) return searchResults;
+    return files;
+  }, [debouncedSearch, searchResults, files]);
 
   // Sync selected tags with URL
   React.useEffect(() => {
@@ -155,9 +139,9 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
 
   // Get tag color based on frequency
   const getTagColor = (count: number) => {
-    if (count >= 10) return "tagCommon";
-    if (count >= 5) return "tagMedium";
-    return "tagRare";
+    if (count >= 10) return "secondary";
+    if (count >= 5) return "outline";
+    return "default";
   };
 
   // Toggle tag selection
@@ -186,31 +170,18 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
     setTagSearchQuery("");
   };
 
-  // Flatten tree for search
-  const allFiles = React.useMemo(() => flattenTree(data.tree), []);
-  
-  // Filter files based on search query
-  const filteredFiles = React.useMemo(() => {
-    if (!debouncedSearch) return allFiles;
-    const query = debouncedSearch.toLowerCase();
-    return allFiles.filter(file => 
-      file.toLowerCase().includes(query)
-    );
-  }, [debouncedSearch, allFiles]);
-
   // Clear search
   const clearSearch = () => {
     setSearchQuery("");
   };
 
-  const handleFileSelect = (filePath: string) => {
-    setSelectedFile(filePath);
-    onFileSelect?.(filePath);
+  const handleFileSelect = (file: FileData) => {
+    setSelectedFile(file.id);
+    onFileSelect(file);
   };
 
   return (
     <Sidebar {...props}>
-      {/* <h1>GYST</h1> */}
       <SidebarContent>
           <div className="flex flex-row select-none p-4 sticky top-0 bg-background z-10 bb-1 w-full">
             <img src="/gyst-remake-flip.png" alt="GYST Logo" className="h-6 w-6 mb-2" />
@@ -286,7 +257,7 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
                 {filteredTags.map((tag) => (
                   <Badge
                     key={tag.id}
-                    variant={selectedTags.includes(tag.id) ? "tagSelected" : getTagColor(tag.count)}
+                    variant={selectedTags.includes(tag.id) ? "default" : getTagColor(tag.count)}
                     className="cursor-pointer flex items-center justify-between"
                     onClick={() => toggleTag(tag.id)}
                   >
@@ -304,6 +275,7 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Files Section */}
         <SidebarGroup>
           <SidebarGroupLabel>Files</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -330,41 +302,42 @@ export function AppSidebar({ onFileSelect, ...props }: AppSidebarProps) {
                 )}
               </div>
 
-              {/* Search Results */}
-              {debouncedSearch && (
-                <div className="px-2 py-1">
-                  <div className="text-sm text-gray-500">
-                    {filteredFiles.length} {filteredFiles.length === 1 ? 'result' : 'results'}
-                  </div>
-                  {filteredFiles.length === 0 ? (
-                    <div className="text-sm text-gray-500 py-2">No results found</div>
-                  ) : (
-                    <SidebarMenu>
-                      {filteredFiles.map((file, index) => (
-                        <SidebarMenuItem key={index}>
-                          <SidebarMenuButton>
-                            <File />
-                            {highlightMatch(file, debouncedSearch)}
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  )}
+              {/* Loading state */}
+              {isSearching && (
+                <div className="px-2 py-2 text-sm text-gray-500">
+                  Searching...
                 </div>
               )}
-            </div>
 
-            <SidebarMenu>
-              {data.tree.map((item, index) => (
-                <Tree 
-                  key={index} 
-                  item={item} 
-                  onSelect={handleFileSelect}
-                  selectedFile={selectedFile}
-                  currentPath=""
-                />
-              ))}
-            </SidebarMenu>
+              {/* File List */}
+              {loading ? (
+                <div className="px-2 py-2 text-sm text-gray-500">
+                  Loading files...
+                </div>
+              ) : (
+                <SidebarMenu>
+                  {displayFiles.map((file) => (
+                    <SidebarMenuItem key={file.id}>
+                      <SidebarMenuButton
+                        isActive={file.id === selectedFile}
+                        onClick={() => handleFileSelect(file)}
+                        className="data-[active=true]:bg-accent"
+                      >
+                        <File />
+                        <span className="truncate">
+                          {file.originalFilename || file.title}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                  {displayFiles.length === 0 && !loading && (
+                    <div className="px-2 py-2 text-sm text-gray-500">
+                      {debouncedSearch ? 'No search results found' : 'No files found'}
+                    </div>
+                  )}
+                </SidebarMenu>
+              )}
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

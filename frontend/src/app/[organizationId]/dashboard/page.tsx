@@ -227,7 +227,15 @@ export default function Page() {
                 ></div>
               )}
             </div>
+          </header>
+          
+          <div className="w-full h-full flex">
+            <FileDisplay 
+              content={selectedFile?.content || ''} 
+            />
           </div>
+        </SidebarInset>
+      </SidebarProvider>
         </SidebarInset>
       </SidebarProvider>
     </div>
