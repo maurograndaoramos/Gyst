@@ -16,6 +16,14 @@ dependencies = [
     "pydantic-settings>=2.0.0,<3.0.0",
     "google-generativeai>=0.8.0",
     "python-dotenv>=1.0.0,<2.0.0",
+    # Enhanced RAG system dependencies (CPU-only, lightweight)
+    "psutil>=5.9.6,<6.0.0",
+    "memory-profiler>=0.61.0,<1.0.0",
+    "textstat>=0.7.3,<1.0.0",
+    "numpy>=1.25.2,<2.0.0",
+    "scikit-learn>=1.3.2,<2.0.0",
+    "asyncio-throttle>=1.0.2,<2.0.0",
+    "aiofiles>=23.2.1,<24.0.0",
 ]
 
 [project.optional-dependencies]

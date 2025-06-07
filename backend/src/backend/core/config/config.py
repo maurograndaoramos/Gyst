@@ -50,6 +50,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"  # Allow extra environment variables (for Enhanced RAG)
     
     def get_upload_path(self, relative_path: str) -> Path:
         """Get the full path for an uploaded file."""

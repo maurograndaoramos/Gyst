@@ -8,8 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.backend.api.routes.documents import router as documents_router
+from src.backend.api.routes.rag import router as rag_router
 from src.backend.core.config import get_settings
+from src.backend.core.config.rag_config import get_rag_config
 from src.backend.core.error_handling.circuit_breaker import get_circuit_breaker_manager
+from src.backend.core.services.enhanced_rag_service import get_enhanced_rag_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +60,31 @@ async def lifespan(app: FastAPI):
     circuit_manager = get_circuit_breaker_manager()
     logger.info("Circuit breaker manager initialized")
     
+    # Initialize Enhanced RAG system
+    try:
+        rag_config = get_rag_config()
+        logger.info(f"Enhanced RAG system enabled: {rag_config.enable_enhanced_rag}")
+        
+        if rag_config.enable_enhanced_rag:
+            # Initialize Enhanced RAG service (will trigger initialization of all components)
+            rag_service = get_enhanced_rag_service()
+            logger.info("Enhanced RAG service initialized successfully")
+            
+            # Create data directory for embedding cache if it doesn't exist
+            import os
+            cache_dir = os.path.dirname(rag_config.embedding_cache_db_path)
+            if cache_dir:
+                os.makedirs(cache_dir, exist_ok=True)
+                logger.info(f"Ensured cache directory exists: {cache_dir}")
+            
+            logger.info("Enhanced RAG system startup completed")
+        else:
+            logger.info("Enhanced RAG system is disabled in configuration")
+        
+    except Exception as e:
+        logger.error(f"Enhanced RAG system startup failed: {e}")
+        # System should still start without Enhanced RAG
+    
     yield
     
     # Shutdown
@@ -82,6 +110,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(documents_router, prefix="/api")
+app.include_router(rag_router, prefix="/api")
 
 @app.get("/")
 async def root():

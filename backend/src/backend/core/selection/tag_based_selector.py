@@ -232,8 +232,13 @@ class TagBasedDocumentSelector:
 _tag_selector: Optional[TagBasedDocumentSelector] = None
 
 
-def get_tag_based_selector(max_documents: int = 5) -> TagBasedDocumentSelector:
-    """Get or create the global tag-based document selector."""
+def get_tag_based_selector(max_documents: int = 5, enable_semantic_scoring: bool = True) -> TagBasedDocumentSelector:
+    """Get or create the global tag-based document selector.
+    
+    Args:
+        max_documents: Maximum number of documents to select
+        enable_semantic_scoring: Whether to enable semantic scoring (currently unused but accepted for compatibility)
+    """
     global _tag_selector
     if _tag_selector is None or _tag_selector.max_documents != max_documents:
         _tag_selector = TagBasedDocumentSelector(max_documents)
