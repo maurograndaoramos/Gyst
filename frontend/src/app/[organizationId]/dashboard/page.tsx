@@ -8,6 +8,7 @@ import FileValidator, { type FileWithPreview } from "@/components/FileValidator"
 import UploadProgressModal, { type FileProgress } from "@/components/UploadProgressModal";
 import { useAuth } from "@/hooks/use-auth";
 import { useParams } from "next/navigation";
+import { signOut } from "next-auth/react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -55,8 +56,13 @@ export default function Page() {
   const organizationId = params.organizationId as string;
   const { role, user, organizationId: userOrgId } = useAuth();
   const [hasCheckedOrg, setHasCheckedOrg] = useState(false);
+  const [files, setFiles] = useState<FileData[]>([]);
+  const [loading, setLoading] = useState(false);
   const isAdmin = role === 'admin';
 
+  // All useEffect hooks MUST come before any conditional returns
+  // Fix for "Rendered more hooks than during the previous render" error
+  
   // Validate organization access
   useEffect(() => {
     if (!userOrgId || userOrgId !== organizationId) {
@@ -65,18 +71,6 @@ export default function Page() {
     }
     setHasCheckedOrg(true);
   }, [userOrgId, organizationId, router]);
-
-  // Don't render anything until we've checked organization access
-  if (!hasCheckedOrg) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
-        <span className="ml-3 text-sm text-muted-foreground">
-          Validating access...
-        </span>
-      </div>
-    );
-  }
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -88,9 +82,41 @@ export default function Page() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+  
+  // Fetch files when component mounts or organizationId changes
+  useEffect(() => {
+    const fetchFiles = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/files?organizationId=${organizationId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFiles(data);
+        }
+      } catch (error) {
+        console.error('Error fetching files:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleLogout = () => {
-    router.push('/login');
+    if (organizationId && hasCheckedOrg) {
+      fetchFiles();
+    }
+  }, [organizationId, hasCheckedOrg]);
+
+  // Define mouse event handlers BEFORE the useEffect that uses them
+  const handleLogout = async () => {
+    try {
+      await signOut({ 
+        callbackUrl: '/',
+        redirect: true 
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback: force redirect if signOut fails
+      router.push('/');
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -126,6 +152,7 @@ export default function Page() {
     document.body.style.userSelect = ""; // Reset user-select to default
   };
 
+  // Now the useEffect can safely reference the functions defined above
   useEffect(() => {
     if (isResizing) {
       window.addEventListener('mousemove', handleMouseMove);
@@ -136,6 +163,19 @@ export default function Page() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing]);
+
+  // Don't render anything until we've checked organization access
+  if (!hasCheckedOrg) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+        <span className="ml-3 text-sm text-muted-foreground">
+          Validating access...
+        </span>
+      </div>
+    );
+  }
+
 
   const handleFileSelect = (file: FileData) => {
     setSelectedFile(file);
@@ -249,31 +289,6 @@ export default function Page() {
     
     handleFilesValidated(filesWithPreview);
   };
-
-  const [files, setFiles] = useState<FileData[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch files when component mounts or organizationId changes
-  useEffect(() => {
-    const fetchFiles = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/files?organizationId=${organizationId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setFiles(data);
-        }
-      } catch (error) {
-        console.error('Error fetching files:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (organizationId) {
-      fetchFiles();
-    }
-  }, [organizationId]);
 
   return (
     <div className="max-h-screen overflow-y-hidden overflow-x-hidden">

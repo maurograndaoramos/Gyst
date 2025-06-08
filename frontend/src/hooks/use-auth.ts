@@ -34,7 +34,11 @@ export function useAuth() {
     const now = Date.now()
     if (isAuthenticated && now - lastCheck > UPDATE_INTERVAL) {
       setLastCheck(now)
-      update() // Update session data
+      // Check if organizationId is missing and trigger refresh
+      if (!organizationIdRef.current || organizationIdRef.current === '') {
+        console.log('useAuth: Triggering session update due to missing organizationId');
+        update() // Update session data
+      }
     }
   }, [isAuthenticated, lastCheck, update])
 

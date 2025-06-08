@@ -1,27 +1,41 @@
 "use client"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useRequireAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/auth/loading-spinner'
 import LandingPage from './landing/page'
 
 export default function HomePage() {
-  const { isLoading, isAuthenticated, organizationId } = useRequireAuth()
+  const { isLoading, isAuthenticated, organizationId } = useAuth()
   const router = useRouter()
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const redirectAttempted = useRef(false)
 
-  // Handle redirects in useEffect
+  // Handle redirects in useEffect with guards against infinite loops
   useEffect(() => {
+    // Prevent multiple redirect attempts
+    if (redirectAttempted.current) return
+    
     if (!isLoading && isAuthenticated && organizationId && !isRedirecting) {
+      redirectAttempted.current = true
       setIsRedirecting(true)
+      
       // Add a small delay to ensure state updates complete
       setTimeout(() => {
         router.replace(`/${organizationId}/dashboard`)
       }, 100)
     }
   }, [isLoading, isAuthenticated, organizationId, router, isRedirecting])
+
+  // Reset redirect flag when auth state changes significantly
+  useEffect(() => {
+    if (!isAuthenticated || !organizationId) {
+      redirectAttempted.current = false
+      setIsRedirecting(false)
+    }
+  }, [isAuthenticated, organizationId])
 
   // Show loading state while checking authentication or during redirect
   if (isLoading || isRedirecting) {

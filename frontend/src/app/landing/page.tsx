@@ -105,8 +105,9 @@
 //     </div>
 //   )
 // }
-'"use client"'
+"use client"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function Component() {
   return (
@@ -123,10 +124,14 @@ export default function Component() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="ghost" className="text-white hover:bg-white/10 rounded-full px-6">
-            Login
-          </Button>
-          <Button className="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white rounded-full px-6">Sign Up</Button>
+          <Link href="/login">
+            <Button variant="ghost" className="text-white hover:bg-white/10 rounded-full px-6">
+              Login
+            </Button>
+          </Link>
+          <Link href="/register">
+            <Button className="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-white rounded-full px-6">Sign Up</Button>
+          </Link>
         </div>
       </header>
 
@@ -147,9 +152,11 @@ export default function Component() {
             with an integrated AI. Never lose time searching again.
           </p>
 
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 text-lg rounded-full">
-            Get early Access
-          </Button>
+          <Link href="/register">
+            <Button className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 text-lg rounded-full">
+              Get early Access
+            </Button>
+          </Link>
         </div>
 
         {/* VS Code Mockup */}

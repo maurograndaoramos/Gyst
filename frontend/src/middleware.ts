@@ -5,10 +5,16 @@ import type { NextRequest } from "next/server"
 // Define protected routes
 const protectedRoutes = ["/dashboard", "/profile", "/admin"]
 const authRoutes = ["/login", "/register"]
+const publicRoutes = ["/", "/landing"]
 
 // Function to check if a path matches the organization dashboard pattern
 const isOrgDashboardRoute = (pathname: string): boolean => {
   return /^\/[^\/]+\/dashboard/.test(pathname)
+}
+
+// Function to check if a path is public (should not be protected)
+const isPublicRoute = (pathname: string): boolean => {
+  return publicRoutes.includes(pathname) || pathname.startsWith("/landing")
 }
 
 export async function middleware(request: NextRequest) {
@@ -18,8 +24,16 @@ export async function middleware(request: NextRequest) {
   // Check if it's an auth route
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
   
+  // Check if it's a public route (should be accessible without authentication)
+  const isPublic = isPublicRoute(pathname)
+  
   // Check if it's a protected route
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route)) || isOrgDashboardRoute(pathname)
+
+  // Allow public routes without authentication
+  if (isPublic) {
+    return NextResponse.next()
+  }
 
   // If user is authenticated and trying to access auth routes, redirect to home
   if (session && isAuthRoute) {

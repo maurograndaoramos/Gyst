@@ -47,19 +47,32 @@ export async function authenticateUser(
     // Create default organization if user doesn't have one
     let orgId = user[0].organizationId;
     if (!orgId) {
-      const defaultOrg = await db.insert(organizations)
-        .values({
-          name: `${foundUser.name || 'User'}'s Organization`,
-          owner_id: foundUser.id,
-        })
-        .returning();
+      // Perform organization creation and user update in a single transaction
+      try {
+        const defaultOrg = await db.insert(organizations)
+          .values({
+            name: `${foundUser.name || 'User'}'s Organization`,
+            owner_id: foundUser.id,
+          })
+          .returning();
 
-      if (defaultOrg.length > 0) {
-        orgId = defaultOrg[0].id;
-        // Update user with new organization
-        await db.update(users)
-          .set({ organizationId: orgId })
-          .where(eq(users.id, foundUser.id));
+        if (defaultOrg.length > 0) {
+          orgId = defaultOrg[0].id;
+          
+          // CRITICAL: Update user with new organization ID synchronously
+          await db.update(users)
+            .set({ organizationId: orgId })
+            .where(eq(users.id, foundUser.id));
+          
+          console.log(`Created organization ${orgId} for user ${foundUser.id}`);
+        } else {
+          console.error("Failed to create organization for user", foundUser.id);
+          throw new Error("Failed to create organization");
+        }
+      } catch (orgError) {
+        console.error("Organization creation error:", orgError);
+        // Don't fail the login, but ensure we handle this case
+        orgId = "";
       }
     }
 
