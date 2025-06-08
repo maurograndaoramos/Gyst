@@ -59,6 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
     error: "/auth/error",
+    signOut: "/auth/signout",
   },
 
   callbacks: {
@@ -105,6 +106,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     
     async signOut() {
       console.log("User signed out")
+    },
+
+    async linkAccount({ user }) {
+      // Log when a new account is linked
+      console.log("Account linked for user:", user.email)
     },
 
     // Removed session event logging to prevent excessive logs

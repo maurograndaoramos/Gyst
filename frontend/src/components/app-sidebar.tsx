@@ -103,8 +103,8 @@ export function AppSidebar({ organizationId, files, onFileSelect, loading, ...pr
 
   // Filter local files for display when no search query
   const displayFiles = React.useMemo(() => {
-    if (debouncedSearch) return searchResults;
-    return files;
+    if (debouncedSearch) return searchResults || [];
+    return files || [];
   }, [debouncedSearch, searchResults, files]);
 
   // Sync selected tags with URL
@@ -343,63 +343,5 @@ export function AppSidebar({ organizationId, files, onFileSelect, loading, ...pr
       </SidebarContent>
       <SidebarRail />
     </Sidebar>
-  )
-}
-
-function Tree({ 
-  item, 
-  onSelect,
-  selectedFile,
-  currentPath
-}: { 
-  item: string | any[];
-  onSelect: (filePath: string) => void;
-  selectedFile: string;
-  currentPath: string;
-}) {
-  const [name, ...items] = Array.isArray(item) ? item : [item]
-  const fullPath = currentPath ? `${currentPath}/${name}` : name;
-
-  if (!items.length) {
-    return (
-      <SidebarMenuButton
-        isActive={fullPath === selectedFile}
-        className="data-[active=true]:bg-transparent"
-        onClick={() => onSelect(fullPath)}
-      >
-        <File />
-        {name}
-      </SidebarMenuButton>
-    )
-  }
-
-  return (
-    <SidebarMenuItem>
-      <Collapsible
-        className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
-        // defaultOpen={name === "components" || name === "ui"} Controlls setting of which folders are open by default
-      >
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton>
-            <ChevronRight className="transition-transform" />
-            <Folder />
-            {name}
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {items.map((subItem, index) => (
-              <Tree 
-                key={index} 
-                item={subItem} 
-                onSelect={onSelect}
-                selectedFile={selectedFile}
-                currentPath={fullPath}
-              />
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </Collapsible>
-    </SidebarMenuItem>
   )
 }

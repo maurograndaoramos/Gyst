@@ -2,8 +2,12 @@
 import * as React from "react"
 import { FileDisplay } from "@/components/ui/fileDisplay";
 import { AppSidebar } from "@/components/app-sidebar"
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
+// import { Textarea } from "@/components/ui/textarea"; // Textarea seems unused
+// import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar"; // Avatar seems unused
+import FileValidator, { type FileWithPreview } from "@/components/FileValidator"; 
+import UploadProgressModal, { type FileProgress } from "@/components/UploadProgressModal";
+import { useAuth } from "@/hooks/use-auth";
+import { useParams } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,18 +26,57 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronRight, File, Folder, PanelRightClose, PanelRightOpen, Send } from "lucide-react"
 import ChatInterface from "@/components/chatInterface";
-const fileText = "lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.           <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ad perferendis itaque vel necessitatibus dignissimos maxime non laborum repellat quaerat sunt qui dolorem perspiciatis, voluptates voluptatibus voluptate, explicabo velit esse fuga eius amet temporibus ipsum fugit placeat deleniti? Sequi recusandae hic animi quasi id obcaecati ratione deserunt reprehenderit. Velit quo et hic itaque, cum exercitationem quidem dolorum praesentium quia excepturi quibusdam molestias ea autem voluptate rem corrupti nobis asperiores mollitia. Inventore officiis dolor quas, rem sunt, tenetur, vero qui ratione maiores in distinctio. Eum vitae temporibus modi iusto exercitationem maxime optio facilis, cumque magni! Sequi, ducimus quam dolor esse amet aliquid autem voluptas maxime, perferendis aspernatur officia modi nulla tenetur quo dignissimos ipsum accusantium? Laboriosam autem labore sed asperiores, obcaecati eius impedit eum, quae similique cumque nesciunt reprehenderit expedita? Praesentium magni laborum non. Dicta quidem dignissimos reprehenderit tenetur rem beatae unde voluptatum ducimus enim porro quas cumque ratione praesentium id, recusandae quibusdam repellendus voluptatibus illum maiores adipisci similique dolores! A unde distinctio vitae et facilis tempora excepturi sint at libero accusamus quaerat perspiciatis labore pariatur iusto suscipit eos porro dolores, modi aliquid? Quibusdam harum, quos perferendis accusantium, in ipsum sint numquam commodi sapiente cum corrupti voluptatibus quia quas excepturi nostrum, distinctio consequatur dolore qui? Consequatur molestiae eius quis, voluptatibus, quaerat esse nisi eligendi earum, odit provident culpa recusandae magnam autem natus. Eligendi voluptates tempora vel cumque non vero accusamus provident aperiam ut velit adipisci eos eum nam dignissimos aliquid quasi harum, excepturi commodi exercitationem temporibus earum ratione quo recusandae autem. Impedit culpa inventore tempora veniam deserunt libero, nobis distinctio et nesciunt eos eveniet odit quaerat neque laborum magni molestiae exercitationem fuga? Rerum dolorum ab enim vero quidem delectus quibusdam quod quo, quisquam fugiat necessitatibus harum sequi doloremque, reprehenderit accusamus error sunt, dolorem deserunt labore. Illum impedit architecto, sapiente nobis tempora fuga. Doloremque beatae voluptas, eius magni ipsam est recusandae alias quam distinctio exercitationem sapiente unde iusto officia in, cum corrupti ex laboriosam ducimus porro eligendi, maxime nulla at explicabo ut. Ipsum voluptates quas, laudantium minima magnam recusandae quod dolor libero ullam nemo eligendi ducimus rem maiores in reprehenderit hic inventore aut, asperiores qui consectetur praesentium cum tenetur earum? Quis porro blanditiis deleniti laudantium cum ab nobis ut officiis non dolorem sit dignissimos harum cumque libero eos aperiam saepe officia illum necessitatibus vel hic, esse velit magni! Ratione quo, quae quasi libero impedit corrupti exercitationem molestias amet officiis fuga animi alias soluta dolor suscipit magni iure minima placeat eos incidunt? Quod vero id ipsam, consectetur officiis, maiores porro iusto nemo rerum quas in et numquam animi ullam tenetur quia optio pariatur cumque, nesciunt perferendis minima odit explicabo hic a! Ut hic doloribus tempore debitis nisi laborum eaque sit quidem temporibus mollitia placeat tenetur eveniet, enim qui sunt rem cum earum iste facere quis quod inventore. Quasi incidunt vero saepe iusto eligendi eius doloremque dolore eos rem ullam, porro at ab neque velit tenetur nulla aliquam nihil, ipsum nam ea eum! Ipsa quo deserunt delectus dolor soluta vel in. Voluptate ea incidunt dolorem.</p>          <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ad perferendis itaque vel necessitatibus dignissimos maxime non laborum repellat quaerat sunt qui dolorem perspiciatis, voluptates voluptatibus voluptate, explicabo velit esse fuga eius amet temporibus ipsum fugit placeat deleniti? Sequi recusandae hic animi quasi id obcaecati ratione deserunt reprehenderit. Velit quo et hic itaque, cum exercitationem quidem dolorum praesentium quia excepturi quibusdam molestias ea autem voluptate rem corrupti nobis asperiores mollitia. Inventore officiis dolor quas, rem sunt, tenetur, vero qui ratione maiores in distinctio. Eum vitae temporibus modi iusto exercitationem maxime optio facilis, cumque magni! Sequi, ducimus quam dolor esse amet aliquid autem voluptas maxime, perferendis aspernatur officia modi nulla tenetur quo dignissimos ipsum accusantium? Laboriosam autem labore sed asperiores, obcaecati eius impedit eum, quae similique cumque nesciunt reprehenderit expedita? Praesentium magni laborum non. Dicta quidem dignissimos reprehenderit tenetur rem beatae unde voluptatum ducimus enim porro quas cumque ratione praesentium id, recusandae quibusdam repellendus voluptatibus illum maiores adipisci similique dolores! A unde distinctio vitae et facilis tempora excepturi sint at libero accusamus quaerat perspiciatis labore pariatur iusto suscipit eos porro dolores, modi aliquid? Quibusdam harum, quos perferendis accusantium, in ipsum sint numquam commodi sapiente cum corrupti voluptatibus quia quas excepturi nostrum, distinctio consequatur dolore qui? Consequatur molestiae eius quis, voluptatibus, quaerat esse nisi eligendi earum, odit provident culpa recusandae magnam autem natus. Eligendi voluptates tempora vel cumque non vero accusamus provident aperiam ut velit adipisci eos eum nam dignissimos aliquid quasi harum, excepturi commodi exercitationem temporibus earum ratione quo recusandae autem. Impedit culpa inventore tempora veniam deserunt libero, nobis distinctio et nesciunt eos eveniet odit quaerat neque laborum magni molestiae exercitationem fuga? Rerum dolorum ab enim vero quidem delectus quibusdam quod quo, quisquam fugiat necessitatibus harum sequi doloremque, reprehenderit accusamus error sunt, dolorem deserunt labore. Illum impedit architecto, sapiente nobis tempora fuga. Doloremque beatae voluptas, eius magni ipsam est recusandae alias quam distinctio exercitationem sapiente unde iusto officia in, cum corrupti ex laboriosam ducimus porro eligendi, maxime nulla at explicabo ut. Ipsum voluptates quas, laudantium minima magnam recusandae quod dolor libero ullam nemo eligendi ducimus rem maiores in reprehenderit hic inventore aut, asperiores qui consectetur praesentium cum tenetur earum? Quis porro blanditiis deleniti laudantium cum ab nobis ut officiis non dolorem sit dignissimos harum cumque libero eos aperiam saepe officia illum necessitatibus vel hic, esse velit magni! Ratione quo, quae quasi libero impedit corrupti exercitationem molestias amet officiis fuga animi alias soluta dolor suscipit magni iure minima placeat eos incidunt? Quod vero id ipsam, consectetur officiis, maiores porro iusto nemo rerum quas in et numquam animi ullam tenetur quia optio pariatur cumque, nesciunt perferendis minima odit explicabo hic a! Ut hic doloribus tempore debitis nisi laborum eaque sit quidem temporibus mollitia placeat tenetur eveniet, enim qui sunt rem cum earum iste facere quis quod inventore. Quasi incidunt vero saepe iusto eligendi eius doloremque dolore eos rem ullam, porro at ab neque velit tenetur nulla aliquam nihil, ipsum nam ea eum! Ipsa quo deserunt delectus dolor soluta vel in. Voluptate ea incidunt dolorem.</p>"
+import { LoadingSpinner } from "@/components/auth/loading-spinner"
+
+
+// Types for file data
+interface FileData {
+  id: string
+  title: string
+  originalFilename: string | null
+  filePath: string | null
+  content: string | null
+  createdAt: Date | null
+}
 
 export default function Page() {
   const [width, setWidth] = useState(450);
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedFilePath, setSelectedFilePath] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<FileProgress[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
+  const params = useParams();
+  const organizationId = params.organizationId as string;
+  const { role, user, organizationId: userOrgId } = useAuth();
+  const [hasCheckedOrg, setHasCheckedOrg] = useState(false);
+  const isAdmin = role === 'admin';
+
+  // Validate organization access
+  useEffect(() => {
+    if (!userOrgId || userOrgId !== organizationId) {
+      router.replace('/');
+      return;
+    }
+    setHasCheckedOrg(true);
+  }, [userOrgId, organizationId, router]);
+
+  // Don't render anything until we've checked organization access
+  if (!hasCheckedOrg) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+        <span className="ml-3 text-sm text-muted-foreground">
+          Validating access...
+        </span>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -94,17 +137,153 @@ export default function Page() {
     };
   }, [isResizing]);
 
-  const handleFileSelect = (filePath: string) => {
-    setSelectedFilePath(filePath);
+  const handleFileSelect = (file: FileData) => {
+    setSelectedFile(file);
+  };
+
+  const handleFilesValidated = async (validFiles: FileWithPreview[]) => {
+    if (!isAdmin || validFiles.length === 0) return;
+
+    const newUploadingFiles: FileProgress[] = validFiles.map(file => ({
+      id: Math.random().toString(36).substring(2),
+      name: file.name,
+      progress: 0,
+      status: 'queued',
+      originalFile: file
+    }));
+
+    setUploadingFiles(prev => [...prev, ...newUploadingFiles]);
+    setShowUploadModal(true);
+
+    for (const fileProgress of newUploadingFiles) {
+      try {
+        const formData = new FormData();
+        if (!fileProgress.originalFile) continue;
+        
+        formData.append('file', fileProgress.originalFile);
+        
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded * 100) / event.total);
+            setUploadingFiles(prevFiles => 
+              prevFiles.map(f => 
+                f.id === fileProgress.id 
+                  ? { ...f, progress, status: 'uploading' }
+                  : f
+              )
+            );
+          }
+        });
+
+        const response = await fetch(`/api/documents/upload?organizationId=${organizationId}`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        setUploadingFiles(prevFiles =>
+          prevFiles.map(f =>
+            f.id === fileProgress.id
+              ? { ...f, status: 'completed', progress: 100 }
+              : f
+          )
+        );
+
+      } catch (error) {
+        console.error('Upload error:', error);
+        setUploadingFiles(prevFiles =>
+          prevFiles.map(f =>
+            f.id === fileProgress.id
+              ? { 
+                  ...f, 
+                  status: 'error',
+                  errorMessage: error instanceof Error ? error.message : 'Upload failed'
+                }
+              : f
+          )
+        );
+      }
+    }
+  };
+
+  const handleCancelUpload = (fileId: string) => {
+    setUploadingFiles(prevFiles =>
+      prevFiles.map(f =>
+        f.id === fileId
+          ? { ...f, status: 'cancelled' }
+          : f
+      )
+    );
+  };
+
+  const handleRetryUpload = (fileId: string) => {
+    const fileToRetry = uploadingFiles.find(f => f.id === fileId);
+    if (!fileToRetry?.originalFile) return;
+
+    // Create a new FileWithPreview from the original file
+    const fileWithPreview = Object.assign(fileToRetry.originalFile, {
+      preview: URL.createObjectURL(fileToRetry.originalFile),
+      isValid: true,
+      errors: []
+    }) as FileWithPreview;
+
+    // Create a new upload entry and start upload
+    handleFilesValidated([fileWithPreview]);
   };
 
   // Split the file path into segments for the breadcrumb
-  const pathSegments = selectedFilePath.split('/').filter(Boolean);
+  const pathSegments = selectedFile?.filePath?.split('/').filter(Boolean) || [];
+
+  // Configure drag and drop for FileValidator
+  const handleDragDrop = (files: File[]) => {
+    const filesWithPreview = files.map(file => ({
+      ...file,
+      preview: URL.createObjectURL(file),
+      isValid: true,
+      errors: []
+    } as FileWithPreview));
+    
+    handleFilesValidated(filesWithPreview);
+  };
+
+  const [files, setFiles] = useState<FileData[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch files when component mounts or organizationId changes
+  useEffect(() => {
+    const fetchFiles = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/files?organizationId=${organizationId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFiles(data);
+        }
+      } catch (error) {
+        console.error('Error fetching files:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (organizationId) {
+      fetchFiles();
+    }
+  }, [organizationId]);
 
   return (
     <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
       <SidebarProvider>
-        <AppSidebar onFileSelect={handleFileSelect} />
+        <AppSidebar
+          onFileSelect={handleFileSelect}
+          organizationId={organizationId}
+          files={files}
+          loading={loading}
+        />
         <SidebarInset>
           <header className="border-b border-gray-400 sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4">
             <div className="flex items-center gap-2">
@@ -143,7 +322,7 @@ export default function Page() {
       
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium">Welcome, User</span>
+                <span className="text-sm font-medium">Welcome, {user?.role} {user?.name}</span>
               <div className="relative" ref={dropdownRef}>
                 <div
                   id="profile-pic"
@@ -171,7 +350,31 @@ export default function Page() {
               className="flex-1 h-full"
               style={{ marginRight: isCollapsed ? 0 : width }}
             >
-              <FileDisplay content={fileText} />
+              {isAdmin && (
+                <div className="w-full h-full absolute inset-0 bg-transparent hover:bg-black/5 transition-colors z-10 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2 data-[dragover=true]:bg-primary/10 data-[dragover=true]:ring-2 data-[dragover=true]:ring-primary/40">
+                  <FileValidator 
+                    onFilesReadyForUpload={(validFiles) => {
+                      handleFilesValidated(validFiles);
+                    }}
+                    customClasses={{
+                      root: "!bg-transparent",
+                      dropzone: "!border-none",
+                    }}
+                  />
+                </div>
+              )}
+              <div className="relative z-0">
+                <FileDisplay content={selectedFile?.content || ''} />
+              </div>
+              {showUploadModal && (
+                <UploadProgressModal
+                  files={uploadingFiles}
+                  isOpen={showUploadModal}
+                  onClose={() => setShowUploadModal(false)}
+                  onCancelFile={handleCancelUpload}
+                  onRetryFile={handleRetryUpload}
+                />
+              )}
             </div>
             
             {/* Fixed positioned sidebar anchored to right side */}
@@ -226,16 +429,8 @@ export default function Page() {
                   onMouseDown={handleMouseDown}
                 ></div>
               )}
-            </div>
-          </header>
-          
-          <div className="w-full h-full flex">
-            <FileDisplay 
-              content={selectedFile?.content || ''} 
-            />
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+            </div> {/* Closes Gyst AI sidebar container */}
+          </div> {/* Closes the main content wrapper <div className="w-full h-full flex"> */}
         </SidebarInset>
       </SidebarProvider>
     </div>

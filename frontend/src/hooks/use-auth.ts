@@ -2,15 +2,23 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import type { UserRole } from '@/types/next-auth'
 
 // Main auth hook using NextAuth directly
 export function useAuth() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
+  const [lastCheck, setLastCheck] = useState<number>(0)
+  const organizationIdRef = useRef<string | null>(null)
+  const UPDATE_INTERVAL = 30000 // 30 seconds
   
   const isLoading = status === 'loading'
   const isAuthenticated = status === 'authenticated' && !!session?.user
+
+  // Cache organization ID to prevent unnecessary updates
+  if (session?.user?.organizationId !== organizationIdRef.current) {
+    organizationIdRef.current = session?.user?.organizationId || null
+  }
   
   const user = session?.user ? {
     id: session.user.id,
@@ -18,8 +26,17 @@ export function useAuth() {
     name: session.user.name,
     image: session.user.image,
     role: session.user.role || 'user' as UserRole,
-    organizationId: session.user.organizationId || '',
+    organizationId: organizationIdRef.current || '',
   } : null
+
+  // Refresh session only if enough time has passed
+  useEffect(() => {
+    const now = Date.now()
+    if (isAuthenticated && now - lastCheck > UPDATE_INTERVAL) {
+      setLastCheck(now)
+      update() // Update session data
+    }
+  }, [isAuthenticated, lastCheck, update])
 
   return {
     user,
@@ -27,7 +44,8 @@ export function useAuth() {
     isLoading,
     isAuthenticated,
     role: user?.role || null,
-    organizationId: user?.organizationId || null,
+    organizationId: organizationIdRef.current,
+    update, // Expose update function
   }
 }
 
@@ -35,10 +53,17 @@ export function useAuth() {
 export function useRequireAuth() {
   const auth = useAuth()
   const router = useRouter()
+  const redirectingRef = useRef(false)
 
   useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated) {
+    // Prevent multiple redirects
+    if (!auth.isLoading && !auth.isAuthenticated && !redirectingRef.current) {
+      redirectingRef.current = true
       router.push('/login')
+    }
+    // Reset flag when auth state changes
+    return () => {
+      redirectingRef.current = false
     }
   }, [auth.isLoading, auth.isAuthenticated, router])
 

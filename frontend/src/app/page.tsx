@@ -1,18 +1,36 @@
 "use client"
 
-import { useAuth } from '@/hooks/use-auth'
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useRequireAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/auth/loading-spinner'
-import { UserHeader } from '@/components/user-header'
-import { UploadSection } from '@/components/upload-section'
 import LandingPage from './landing/page'
 
 export default function HomePage() {
-  const { isLoading, isAuthenticated, role } = useAuth()
+  const { isLoading, isAuthenticated, organizationId } = useRequireAuth()
+  const router = useRouter()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
-  if (isLoading) {
+  // Handle redirects in useEffect
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && organizationId && !isRedirecting) {
+      setIsRedirecting(true)
+      // Add a small delay to ensure state updates complete
+      setTimeout(() => {
+        router.replace(`/${organizationId}/dashboard`)
+      }, 100)
+    }
+  }, [isLoading, isAuthenticated, organizationId, router, isRedirecting])
+
+  // Show loading state while checking authentication or during redirect
+  if (isLoading || isRedirecting) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
+        <span className="ml-3 text-sm text-muted-foreground">
+          {isRedirecting ? 'Redirecting to dashboard...' : 'Loading...'}
+        </span>
       </div>
     )
   }
@@ -22,60 +40,27 @@ export default function HomePage() {
     return <LandingPage />
   }
 
-  // Show dashboard for authenticated users
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header with role indicators */}
-      <UserHeader />
-      
-      <main className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Welcome Section */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome to Gyst
-            </h1>
-            <p className="text-gray-600">
-              Your AI-native documentation brain for intelligent knowledge management.
-            </p>
-          </div>
-
-          {/* Upload Section - Conditional rendering based on role */}
-          <UploadSection />
-
-          {/* Main Content Area */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Document Management
-            </h2>
-            <div className="space-y-4">
-              {/* Document list would go here */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <p className="text-gray-500">
-                  Document browser and search functionality will be implemented here.
-                </p>
-                {role !== 'admin' && (
-                  <p className="text-sm text-gray-400 mt-2">
-                    Contact an administrator to upload new documents.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Chat Interface */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              AI Assistant
-            </h2>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <p className="text-gray-500">
-                Conversational AI interface for document queries will be implemented here.
-              </p>
-            </div>
-          </div>
+  // Show message for authenticated users without organization
+  if (!organizationId) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-md mx-auto">
+          <h1 className="text-2xl font-bold mb-6">Welcome to Gyst</h1>
+          <p className="text-red-600 mb-4">
+            No organization associated with your account.
+            Please contact your administrator.
+          </p>
+          <Link
+            href="/login"
+            className="text-primary hover:underline"
+          >
+            Back to Login
+          </Link>
         </div>
-      </main>
-    </div>
-  )
+      </div>
+    )
+  }
+
+  // Render nothing while we wait for redirect
+  return null
 }

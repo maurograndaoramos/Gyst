@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/hooks/use-auth"
 
 export function LoginForm({
   className,
@@ -53,7 +54,6 @@ export function LoginForm({
     setLoading(true);
     
     try {
-      // Use NextAuth to sign in with credentials
       const { signIn } = await import('next-auth/react');
       const result = await signIn('credentials', {
         email,
@@ -62,11 +62,12 @@ export function LoginForm({
       });
 
       if (result?.ok) {
-        // Login successful - redirect to organization dashboard
-        window.location.href = '/org-placeholder/dashboard';
-      } else {
-        // Login failed
+        // Redirect to callback page which will handle session initialization
+        window.location.href = '/auth/callback';
+      } else if (result?.error === 'CredentialsSignin') {
         setGeneralError('Invalid email or password.');
+      } else {
+        setGeneralError('An error occurred during login. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);

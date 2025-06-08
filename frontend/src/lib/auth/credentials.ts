@@ -1,7 +1,7 @@
 import type { User } from "next-auth"
 import { compare, hash } from "bcryptjs"
 import { db } from "@/lib/db"
-import { users } from "@/lib/db/schema"
+import { users, organizations } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import type { UserRole } from "@/types/next-auth"
 
@@ -15,28 +15,52 @@ export async function authenticateUser(
   password: string
 ): Promise<CustomUser | null> {
   try {
-    // Find user by email
+    // Find user by email and join with organizations
     const user = await db
-      .select()
+      .select({
+        user: users,
+        organizationId: organizations.id,
+        organizationName: organizations.name,
+      })
       .from(users)
+      .leftJoin(organizations, eq(users.organizationId, organizations.id))
       .where(eq(users.email, email))
-      .limit(1)
+      .limit(1);
 
-    if (!user.length || !user[0].password) {
-      return null
+    if (!user.length || !user[0].user.password) {
+      return null;
     }
 
-    const foundUser = user[0]
+    const foundUser = user[0].user;
 
-    // Verify password against stored hash - check for null before comparing
+    // Verify password against stored hash
     if (!foundUser.password) {
-      return null
+      return null;
     }
 
-    const isValid = await compare(password, foundUser.password)
+    const isValid = await compare(password, foundUser.password);
 
     if (!isValid) {
-      return null
+      return null;
+    }
+
+    // Create default organization if user doesn't have one
+    let orgId = user[0].organizationId;
+    if (!orgId) {
+      const defaultOrg = await db.insert(organizations)
+        .values({
+          name: `${foundUser.name || 'User'}'s Organization`,
+          owner_id: foundUser.id,
+        })
+        .returning();
+
+      if (defaultOrg.length > 0) {
+        orgId = defaultOrg[0].id;
+        // Update user with new organization
+        await db.update(users)
+          .set({ organizationId: orgId })
+          .where(eq(users.id, foundUser.id));
+      }
     }
 
     return {
@@ -44,9 +68,9 @@ export async function authenticateUser(
       email: foundUser.email!,
       name: foundUser.name,
       image: foundUser.image,
-      role: "user" as UserRole, // Default role, can be enhanced with database lookup
-      organizationId: "", // Default organization, can be enhanced with database lookup
-    }
+      role: "user" as UserRole,
+      organizationId: orgId || "",
+    };
   } catch (error) {
     console.error("Authentication error:", error)
     return null
