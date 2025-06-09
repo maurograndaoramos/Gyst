@@ -2,3 +2,5 @@
 build
 *backend.egg-info
 __pycache__
+
+.env
