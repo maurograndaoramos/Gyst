@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.backend.api.routes.documents import router as documents_router
 from src.backend.api.routes.rag import router as rag_router
+from src.backend.api.routes.chat import router as chat_router
 from src.backend.core.config import get_settings
 from src.backend.core.config.rag_config import get_rag_config
 from src.backend.core.error_handling.circuit_breaker import get_circuit_breaker_manager
@@ -111,6 +112,7 @@ app.add_middleware(
 # Include routers
 app.include_router(documents_router, prefix="/api")
 app.include_router(rag_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 @app.get("/")
 async def root():

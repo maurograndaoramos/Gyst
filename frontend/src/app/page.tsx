@@ -4,9 +4,10 @@ import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/auth/loading-spinner'
 import { UserHeader } from '@/components/user-header'
 import { UploadSection } from '@/components/upload-section'
+import Link from 'next/link'
 
 export default function Dashboard() {
-  const { isLoading, isAuthenticated, role } = useAuth()
+  const { isLoading, isAuthenticated, role, organizationId } = useAuth()
 
   if (isLoading) {
     return (
@@ -33,15 +34,19 @@ export default function Dashboard() {
       <UserHeader />
       
       <main className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Welcome Section */}
+        <div className="space-y-8">          {/* Welcome Section */}
           <div className="bg-white rounded-lg shadow p-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Welcome to Gyst
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-4">
               Your AI-native documentation brain for intelligent knowledge management.
-            </p>
+            </p>            <Link 
+              href={`/${organizationId}/dashboard`} 
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors duration-200"
+            >
+              Go to Organization Dashboard
+            </Link>
           </div>
 
           {/* Upload Section - Conditional rendering based on role */}
