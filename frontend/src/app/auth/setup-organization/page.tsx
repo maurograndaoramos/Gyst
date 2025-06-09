@@ -227,7 +227,7 @@ export default function SetupOrganizationPage() {
                           error && "border-red-500 focus:border-red-500 focus:ring-red-500"
                         )}
                         autoFocus
-                        disabled={state === 'creating'}
+                        disabled={state !== 'form'}
                       />
                       {isValidating && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -252,7 +252,7 @@ export default function SetupOrganizationPage() {
                   <motion.div variants={itemVariants}>
                     <Button
                       type="submit"
-                      disabled={!organizationName.trim() || !!error || isValidating || state === 'creating'}
+                      disabled={!organizationName.trim() || !!error || isValidating || (state !== 'form')}
                       className={cn(
                         "w-full h-12 text-lg font-semibold",
                         "bg-gradient-to-r from-blue-500 to-indigo-600",
@@ -263,7 +263,7 @@ export default function SetupOrganizationPage() {
                         "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                       )}
                     >
-                      {state === 'creating' ? (
+                      {state !== 'form' ? (
                         <div className="flex items-center gap-2">
                           <Loader2 className="w-5 h-5 animate-spin" />
                           Creating Organization...
