@@ -32,10 +32,8 @@ export const users = sqliteTable("user", {
   organizationId: text("organizationId")
     .references(() => organizations.id, { onDelete: "cascade" }),
   created_at: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
     .$defaultFn(() => new Date()),
   updated_at: integer("updated_at", { mode: "timestamp_ms" })
-    .notNull()
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date()),
 })

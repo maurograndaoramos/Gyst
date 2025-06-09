@@ -6,6 +6,7 @@ import type { NextRequest } from "next/server"
 const protectedRoutes = ["/dashboard", "/profile", "/admin"]
 const authRoutes = ["/login", "/register"]
 const publicRoutes = ["/", "/landing"]
+const organizationSetupRoute = "/auth/setup-organization"
 
 // Function to check if a path matches the organization dashboard pattern
 const isOrgDashboardRoute = (pathname: string): boolean => {
@@ -45,6 +46,24 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url)
     loginUrl.searchParams.set("callbackUrl", request.url)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // If user is authenticated, check if they need organization setup
+  if (session && session.user) {
+    // Allow access to organization setup page
+    if (pathname === organizationSetupRoute) {
+      return NextResponse.next()
+    }
+
+    // Check if user has no organization and is trying to access protected routes
+    if (isProtectedRoute && (!session.user.organizationId || session.user.organizationId === '')) {
+      console.log('Middleware: Redirecting user without organization to setup page:', {
+        userId: session.user.id,
+        currentPath: pathname,
+        organizationId: session.user.organizationId
+      })
+      return NextResponse.redirect(new URL(organizationSetupRoute, request.url))
+    }
   }
 
   return NextResponse.next()

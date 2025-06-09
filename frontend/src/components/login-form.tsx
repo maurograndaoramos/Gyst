@@ -160,11 +160,37 @@ export function LoginForm({
             Or continue with
           </span>
         </div>
-        <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+        <Button 
+          type="button"
+          variant="outline" 
+          className="w-full flex items-center justify-center gap-2"
+          onClick={async () => {
+            try {
+              const { signIn } = await import('next-auth/react');
+              await signIn('github', { callbackUrl: '/' });
+            } catch (error) {
+              console.error('GitHub sign in error:', error);
+              setGeneralError('Failed to sign in with GitHub. Please try again.');
+            }
+          }}
+        >
           <img src="/github.svg" alt="GitHub logo" className="h-6 w-6" />
           Login with GitHub
         </Button>
-        <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+        <Button 
+          type="button"
+          variant="outline" 
+          className="w-full flex items-center justify-center gap-2"
+          onClick={async () => {
+            try {
+              const { signIn } = await import('next-auth/react');
+              await signIn('google', { callbackUrl: '/' });
+            } catch (error) {
+              console.error('Google sign in error:', error);
+              setGeneralError('Failed to sign in with Google. Please try again.');
+            }
+          }}
+        >
           <img src="/google_icon.svg" alt="Google logo" className="h-6 w-6" />
           Login with Google
         </Button>

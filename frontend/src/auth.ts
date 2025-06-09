@@ -135,6 +135,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       else if (new URL(url).origin === baseUrl) return url
       return baseUrl
     },
+
+    async signIn({ user, account, profile }) {
+      // For OAuth providers (Google, GitHub), check if user needs organization setup
+      if (account?.type === "oauth" && user.id) {
+        try {
+          const { db } = await import("@/lib/db")
+          const { users } = await import("@/lib/db/schema")
+          const { eq } = await import("drizzle-orm")
+          
+          const existingUser = await db
+            .select({
+              id: users.id,
+              organizationId: users.organizationId,
+            })
+            .from(users)
+            .where(eq(users.id, user.id))
+            .limit(1);
+
+          // If user exists but has no organization, they'll be redirected via JWT callback
+          console.log('SignIn callback - OAuth user organization check:', {
+            userId: user.id,
+            hasOrganization: existingUser.length > 0 ? !!existingUser[0].organizationId : 'user_not_found'
+          });
+        } catch (error) {
+          console.error('SignIn callback error:', error);
+        }
+      }
+      return true;
+    },
   },
 
   events: {
