@@ -26,6 +26,15 @@ class DocumentSource(BaseModel):
     excerpt: Optional[str] = Field(None, description="Relevant excerpt from the document")
     page_number: Optional[int] = Field(None, description="Page number for PDF documents")
 
+class AgentStep(BaseModel):
+    """Model representing a single agent's thought process step."""
+    agent_name: str = Field(..., description="Name of the agent")
+    agent_role: str = Field(..., description="Role/specialty of the agent")
+    thought_process: str = Field(..., description="The agent's thinking process and analysis")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="When this step occurred")
+    status: str = Field(default="completed", description="Status of this step: thinking, active, completed")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional agent step metadata")
+
 class ChatRequest(BaseModel):
     """Request model for chat endpoint."""
     message: str = Field(..., description="User message", min_length=1, max_length=10000)
@@ -80,13 +89,24 @@ class ChatResponse(BaseModel):
         default_factory=list, 
         description="Source documents used in response"
     )
+    agent_process: Optional[List[AgentStep]] = Field(
+        default_factory=list,
+        description="Agent thought processes and collaboration steps"
+    )
     processing_time_seconds: Optional[float] = Field(None, description="Time taken to process the request")
     token_usage: Optional[Dict[str, int]] = Field(None, description="Token usage statistics")
     follow_up_suggestions: Optional[List[str]] = Field(
         default_factory=list, 
         description="Suggested follow-up questions"
     )
+    raw_crew_output: Optional[str] = Field(None, description="Raw CrewAI output for debugging")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
+    
+    model_config = {
+        "json_encoders": {datetime: lambda v: v.isoformat()},
+        "use_enum_values": True,
+        "exclude_none": False  # Don't exclude None values
+    }
 
 class ChatStreamChunk(BaseModel):
     """Model for streaming chat response chunks."""

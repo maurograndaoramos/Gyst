@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from ...schema.chat import (
     ChatRequest, ChatResponse, ChatErrorResponse, 
-    ChatStreamChunk, ConversationSummary, ChatHealth
+    ChatStreamChunk, ConversationSummary, ChatHealth, ChatMessage, MessageRole, AgentStep
 )
 from ...core.services.chat_service import get_chat_service
 from ...core.error_handling.circuit_breaker import CircuitBreakerError
@@ -415,4 +415,60 @@ async def list_conversations() -> Response:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list conversations: {str(e)}"
+        )
+
+@router.get(
+    "/debug/agent-process-test",
+    response_model=ChatResponse,
+    summary="Test agent process serialization",
+    description="Debug endpoint to test agent process field serialization"
+)
+async def debug_agent_process_test() -> ChatResponse:
+    """
+    Test endpoint for debugging agent process serialization.
+    
+    Returns:
+        ChatResponse: Test response with mock agent process data
+    """
+    try:
+        # Create test agent steps
+        test_agent_steps = [
+            AgentStep(
+                agent_name="Test Document Specialist",
+                agent_role="Context Analysis", 
+                thought_process="Testing document analysis process...",
+                status="completed"
+            ),
+            AgentStep(
+                agent_name="Test AI Assistant",
+                agent_role="Response Generation",
+                thought_process="Testing response generation process...",
+                status="completed"
+            )
+        ]
+        
+        # Create test message
+        test_message = ChatMessage(
+            role=MessageRole.ASSISTANT,
+            content="This is a test response to verify agent process serialization works correctly."
+        )
+        
+        # Create test response
+        test_response = ChatResponse(
+            conversation_id="debug-test-123",
+            message=test_message,
+            sources=[],
+            agent_process=test_agent_steps,
+            processing_time_seconds=1.23,
+            follow_up_suggestions=["Test suggestion 1", "Test suggestion 2"],
+            raw_crew_output="TEST: Debug raw crew output"
+        )
+        
+        return test_response
+        
+    except Exception as e:
+        logger.error(f"Debug test failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Debug test failed: {str(e)}"
         )
