@@ -81,7 +81,7 @@ export async function authenticateUser(
       email: foundUser.email!,
       name: foundUser.name,
       image: foundUser.image,
-      role: "user" as UserRole,
+      role: foundUser.role || "admin" as UserRole, // Use stored role or default to admin
       organizationId: orgId || "",
     };
   } catch (error) {
@@ -122,6 +122,7 @@ export async function createUser(userData: {
         name: userData.name,
         password: hashedPassword,
         organizationId: userData.organizationId || null,
+        role: "admin", // Set all new users as admin by default
       })
       .returning()
 
@@ -134,7 +135,7 @@ export async function createUser(userData: {
       id: user.id,
       email: user.email!,
       name: user.name,
-      role: "user" as UserRole,
+      role: user.role || "admin" as UserRole, // Use stored role or default to admin
       organizationId: user.organizationId || "",
     }
   } catch (error) {

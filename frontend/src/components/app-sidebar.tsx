@@ -55,16 +55,24 @@ interface FileData {
   filePath: string | null
   content: string | null
   createdAt: Date | null
+  order?: number
+}
+
+interface DragItem {
+  type: 'FILE'
+  id: string
+  index: number
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   organizationId: string
   files: FileData[]
   onFileSelect: (file: FileData) => void
+  onFilesReorder?: (files: FileData[]) => void
   loading: boolean
 }
 
-export function AppSidebar({ organizationId, files, onFileSelect, loading, ...props }: AppSidebarProps) {
+export function AppSidebar({ organizationId, files, onFileSelect, onFilesReorder, loading, ...props }: AppSidebarProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [tagSearchQuery, setTagSearchQuery] = React.useState("");
   const [selectedTags, setSelectedTags] = React.useState<number[]>([]);
@@ -73,6 +81,8 @@ export function AppSidebar({ organizationId, files, onFileSelect, loading, ...pr
   const [selectedFile, setSelectedFile] = React.useState<string>("");
   const [searchResults, setSearchResults] = React.useState<FileData[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [draggedItem, setDraggedItem] = React.useState<DragItem | null>(null);
   const debouncedSearch = useDebounce(searchQuery, 300);
   const debouncedTagSearch = useDebounce(tagSearchQuery, 300);
 
@@ -173,6 +183,58 @@ export function AppSidebar({ organizationId, files, onFileSelect, loading, ...pr
   // Clear search
   const clearSearch = () => {
     setSearchQuery("");
+  };
+
+  const handleDragStart = (e: React.DragEvent, file: FileData, index: number) => {
+    setIsDragging(true);
+    setDraggedItem({ type: 'FILE', id: file.id, index });
+    
+    // Create a drag preview
+    const dragPreview = document.createElement('div');
+    dragPreview.className = 'bg-background border rounded p-2 flex items-center gap-2 shadow-lg';
+    dragPreview.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <line x1="10" y1="9" x2="8" y2="9"></line>
+      </svg>
+      <span>${file.originalFilename || file.title}</span>
+    `;
+    
+    document.body.appendChild(dragPreview);
+    e.dataTransfer.setDragImage(dragPreview, 20, 20);
+    
+    // Clean up the preview element after it's no longer needed
+    setTimeout(() => document.body.removeChild(dragPreview), 0);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDraggedItem(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    const draggedOverItem = displayFiles[index];
+    if (draggedOverItem.id === draggedItem.id) return;
+
+    const items = [...displayFiles];
+    const draggedItemIndex = items.findIndex(item => item.id === draggedItem.id);
+    items.splice(draggedItemIndex, 1);
+    items.splice(index, 0, displayFiles[draggedItemIndex]);
+
+    // Create new array with updated order
+    const newItems = items.map((item, idx) => ({
+      ...item,
+      order: idx
+    }));
+    
+    // Call the reorder callback if provided
+    onFilesReorder?.(newItems);
   };
 
   const handleFileSelect = (file: FileData) => {
@@ -316,18 +378,53 @@ export function AppSidebar({ organizationId, files, onFileSelect, loading, ...pr
                 </div>
               ) : (
                 <SidebarMenu>
-                  {displayFiles.map((file) => (
-                    <SidebarMenuItem key={file.id}>
+                  {displayFiles.map((file, index) => (
+                    <SidebarMenuItem 
+                      key={file.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, file, index)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      className={`
+                        relative
+                        ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
+                        ${draggedItem?.id === file.id ? 'opacity-50' : 'opacity-100'}
+                      `}
+                    >
+                      {/* Drop zone above */}
+                      <div 
+                        className={`
+                          absolute -top-1 left-0 right-0 h-2 
+                          ${isDragging ? 'bg-primary/20' : ''}
+                          transition-colors duration-200
+                        `}
+                      />
+                      
                       <SidebarMenuButton
                         isActive={file.id === selectedFile}
                         onClick={() => handleFileSelect(file)}
-                        className="data-[active=true]:bg-accent"
+                        className={`
+                          data-[active=true]:bg-accent
+                          relative
+                          ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
+                        `}
                       >
-                        <File />
-                        <span className="truncate">
-                          {file.originalFilename || file.title}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <File className="shrink-0" />
+                          <span className="truncate">
+                            {file.originalFilename || file.title}
+                          </span>
+                        </div>
                       </SidebarMenuButton>
+                      
+                      {/* Drop zone below */}
+                      <div 
+                        className={`
+                          absolute -bottom-1 left-0 right-0 h-2
+                          ${isDragging ? 'bg-primary/20' : ''}
+                          transition-colors duration-200
+                        `}
+                      />
                     </SidebarMenuItem>
                   ))}
                   {displayFiles.length === 0 && !loading && (

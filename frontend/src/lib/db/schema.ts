@@ -31,6 +31,7 @@ export const users = sqliteTable("user", {
   password: text("password"), // For credentials auth
   organizationId: text("organizationId")
     .references(() => organizations.id, { onDelete: "cascade" }),
+  role: text("role", { mode: "text" }).$type<"admin" | "user">().notNull().$default(() => "admin"),
   created_at: integer("created_at", { mode: "timestamp_ms" })
     .$defaultFn(() => new Date()),
   updated_at: integer("updated_at", { mode: "timestamp_ms" })

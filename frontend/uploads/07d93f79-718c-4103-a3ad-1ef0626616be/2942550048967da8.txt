@@ -1,0 +1,5 @@
+This is a test document for testing the upload functionality.
+
+It contains some basic text content that should be successfully uploaded and validated by our API endpoint.
+
+The file validation should detect this as a valid text/plain file and allow the upload to proceed.
