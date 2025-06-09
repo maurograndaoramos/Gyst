@@ -1,10 +1,14 @@
-"""Service layer components for document analysis and AI processing."""
+"""Enhanced RAG Services - Main service layer for Enhanced RAG functionality."""
 
-from .crewai_service import DocumentAnalysisService, get_document_analysis_service
-from .pattern_recognition_service import PatternRecognitionService
+from .enhanced_rag_service import get_enhanced_rag_service, reset_enhanced_rag_service
+from .embedding_service import get_embedding_service, reset_embedding_service
+from .document_processing_service import get_document_processing_service, reset_document_processing_service
 
 __all__ = [
-    "DocumentAnalysisService", 
-    "get_document_analysis_service",
-    "PatternRecognitionService"
+    "get_enhanced_rag_service",
+    "reset_enhanced_rag_service",
+    "get_embedding_service", 
+    "reset_embedding_service",
+    "get_document_processing_service",
+    "reset_document_processing_service"
 ]
