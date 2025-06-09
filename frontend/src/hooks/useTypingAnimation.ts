@@ -20,7 +20,7 @@ interface UseTypingAnimationReturn {
 export const useTypingAnimation = ({
   text,
   onComplete,
-  speed = { min: 30, max: 70 },
+  speed = { min: 15, max: 35 }, // Much faster default speed
   id
 }: UseTypingAnimationProps): UseTypingAnimationReturn => {
   // Generate stable ID for this animation instance
