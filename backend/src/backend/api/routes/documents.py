@@ -13,7 +13,7 @@ from ...schema.document_analysis import (
     AnalyzeDocumentErrorResponse,
     ProcessingStatusResponse
 )
-from ...core.services import get_document_analysis_service
+from ...core.services import get_document_processing_service
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ async def analyze_document(request: AnalyzeDocumentRequest) -> Union[AnalyzeDocu
         logger.info(f"Starting document analysis for path: {request.document_path}")
         
         # Get the document analysis service
-        analysis_service = get_document_analysis_service()
+        analysis_service = get_document_processing_service()
         
         # Perform the analysis
         result = await analysis_service.analyze_document(
@@ -213,7 +213,7 @@ async def health_check():
     """
     try:
         # Try to get the service instance to verify it's working
-        service = get_document_analysis_service()
+        service = get_document_processing_service()
         
         return {
             "status": "healthy",
