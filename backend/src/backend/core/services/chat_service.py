@@ -22,6 +22,7 @@ from ..config import get_settings
 from ..processing import get_document_tool_factory
 from ..selection import get_tag_based_selector
 from ..error_handling.circuit_breaker import get_circuit_breaker_manager, CircuitBreakerConfig
+from ..memory import get_conversation_memory_manager
 from .crewai_service import get_document_analysis_service
 
 # Configure logging
@@ -55,6 +56,9 @@ class ChatService:
         self.tool_factory = get_document_tool_factory()
         self.tag_selector = get_tag_based_selector(max_documents=20)
         self.document_service = get_document_analysis_service()
+        
+        # Initialize enhanced conversation memory manager
+        self.memory_manager = get_conversation_memory_manager()
         
         # Initialize memory storage
         self._init_memory_storage()
@@ -286,7 +290,7 @@ class ChatService:
         return await self.circuit_breaker.call(self._chat_internal, request=request)
     
     async def _chat_internal(self, request: ChatRequest) -> ChatResponse:
-        """Internal chat processing implementation."""
+        """Internal chat processing implementation with enhanced memory management."""
         start_time = time.time()
         
         # Generate conversation ID if not provided
@@ -304,24 +308,36 @@ class ChatService:
                 except Exception as e:
                     logger.warning(f"Invalid document path {doc_path}: {e}")
             
-            # Get conversation history
-            conversation_history = self._get_conversation_history(conversation_id)
-            
             # Create user message
             user_message = ChatMessage(
                 role=MessageRole.USER,
                 content=request.message
             )
             
-            # Add to conversation history
-            conversation_history.append(user_message)
+            # Add user message to advanced memory manager
+            await self.memory_manager.add_message(conversation_id, user_message)
             
-            # Create and execute crew
-            crew = self._create_chat_crew(
+            # Get relevant context from memory manager
+            memory_context = await self.memory_manager.get_relevant_context(
+                conversation_id, 
+                request.message, 
+                max_tokens=8000
+            )
+            
+            # Get conversation history from enhanced memory
+            conversation_state = await self.memory_manager.get_conversation_state(conversation_id)
+            conversation_history = self._get_enhanced_conversation_history(
+                conversation_id, 
+                memory_context
+            )
+            
+            # Create and execute crew with enhanced context
+            crew = self._create_enhanced_chat_crew(
                 conversation_id=conversation_id,
                 user_message=request.message,
                 document_paths=validated_paths,
-                conversation_history=conversation_history[:-1]  # Exclude current message
+                conversation_history=conversation_history,
+                memory_context=memory_context
             )
             
             # Execute the crew
@@ -333,18 +349,22 @@ class ChatService:
                 content=str(result)
             )
             
+            # Add assistant message to memory manager
+            await self.memory_manager.add_message(conversation_id, assistant_message)
+            
             # Extract sources if requested
             sources = []
             if request.include_sources and validated_paths:
                 sources = self._extract_sources_from_result(result, validated_paths)
             
-            # Generate follow-up suggestions
-            follow_up_suggestions = self._generate_follow_up_suggestions(
+            # Generate enhanced follow-up suggestions based on topics and memory
+            follow_up_suggestions = await self._generate_enhanced_follow_up_suggestions(
                 request.message, 
-                assistant_message.content
+                assistant_message.content,
+                memory_context
             )
             
-            # Update conversation context
+            # Update legacy conversation context for backward compatibility
             self._update_conversation_context(
                 conversation_id, 
                 [user_message, assistant_message],
@@ -412,6 +432,142 @@ class ChatService:
             topics=["topic1", "topic2"]  # Would be extracted from conversation
         )
     
+    def _get_enhanced_conversation_history(self, conversation_id: str, memory_context: Dict[str, Any]) -> List[ChatMessage]:
+        """Get enhanced conversation history using memory context."""
+        # For now, fall back to the legacy method but could be enhanced with memory_context
+        # In a full implementation, this would retrieve actual ChatMessage objects
+        # based on the message IDs from memory_context['messages']
+        return self._get_conversation_history(conversation_id)
+    
+    def _create_enhanced_chat_crew(
+        self, 
+        conversation_id: str, 
+        user_message: str,
+        document_paths: List[str],
+        conversation_history: List[ChatMessage],
+        memory_context: Dict[str, Any]
+    ) -> Crew:
+        """Create an enhanced CrewAI crew with memory context."""
+        # Create agents
+        chat_agent, context_agent = self._create_chat_agents(conversation_id, document_paths)
+        
+        # Build enhanced conversation context with topics and summaries
+        history_context = ""
+        if conversation_history:
+            recent_messages = conversation_history[-5:]  # Last 5 messages for context
+            history_context = "\n".join([
+                f"{msg.role.value}: {msg.content}" 
+                for msg in recent_messages
+            ])
+        
+        # Add topic context
+        topic_context = ""
+        if memory_context.get('topics'):
+            topic_names = [topic.name for topic in memory_context['topics'][:3]]
+            topic_context = f"\nCurrent conversation topics: {', '.join(topic_names)}"
+        
+        # Add summary context
+        summary_context = ""
+        if memory_context.get('summaries'):
+            recent_summary = memory_context['summaries'][0]
+            summary_context = f"\nRecent conversation summary: {recent_summary.content}"
+        
+        # Create enhanced context analysis task
+        context_task = Task(
+            description=f"""Analyze the provided documents for relevance to the user's query: "{user_message}"
+            
+            Available documents: {', '.join(document_paths) if document_paths else 'None'}
+            
+            Your task is to:
+            1. Determine which documents are most relevant to the query
+            2. Extract relevant excerpts or key information
+            3. Score the relevance of each document (0.0 to 1.0)
+            4. Identify any specific sections or pages that are most pertinent
+            
+            Consider the conversation history:
+            {history_context if history_context else 'No previous conversation'}
+            {topic_context}
+            {summary_context}
+            
+            Return a structured analysis of document relevance and key excerpts.
+            """,
+            agent=context_agent,
+            expected_output="Structured analysis of document relevance with excerpts and scores"
+        )
+        
+        # Create enhanced chat response task
+        chat_task = Task(
+            description=f"""Generate a helpful response to the user's message: "{user_message}"
+            
+            Use the document context analysis from the Context Specialist to inform your response.
+            
+            Conversation context:
+            {history_context if history_context else 'This is the start of the conversation'}
+            {topic_context}
+            {summary_context}
+            
+            Guidelines:
+            - Provide accurate, helpful information based on the available documents
+            - Cite specific sources when referencing document content
+            - Maintain a natural, conversational tone
+            - Consider the conversation topics and previous discussions
+            - If documents don't contain relevant information, say so clearly
+            - Suggest follow-up questions when appropriate
+            - Keep responses concise but comprehensive
+            
+            Your response should be natural and conversational while being informative.
+            """,
+            agent=chat_agent,
+            context=[context_task],
+            expected_output="A natural, helpful response to the user's query with source citations"
+        )
+        
+        # Create crew with memory enabled
+        crew = Crew(
+            agents=[context_agent, chat_agent],
+            tasks=[context_task, chat_task],
+            verbose=True,
+            memory=True,
+            long_term_memory=self.memory_storage if self.memory_storage else None,
+            embedder={
+                "provider": "google",
+                "config": {
+                    "api_key": self.settings.gemini_api_key,
+                    "model": "text-embedding-004"
+                }
+            }
+        )
+        
+        return crew
+    
+    async def _generate_enhanced_follow_up_suggestions(
+        self, 
+        user_message: str, 
+        response_content: str,
+        memory_context: Dict[str, Any]
+    ) -> List[str]:
+        """Generate enhanced follow-up suggestions based on topics and memory."""
+        suggestions = []
+        
+        # Topic-based suggestions
+        if memory_context.get('topics'):
+            for topic in memory_context['topics'][:2]:
+                suggestions.append(f"Can you tell me more about {topic.name}?")
+        
+        # Context-based suggestions
+        if memory_context.get('current_topic'):
+            suggestions.append("What are the key aspects of this topic?")
+        
+        # Default suggestions if no specific topics
+        if not suggestions:
+            suggestions = [
+                "Can you provide more details about this topic?",
+                "What are the key takeaways from these documents?",
+                "Are there any related concepts I should know about?"
+            ]
+        
+        return suggestions[:3]  # Return max 3 suggestions
+
     def get_health_status(self) -> Dict[str, Any]:
         """Get health status of the chat service."""
         uptime = (datetime.utcnow() - self.startup_time).total_seconds()
@@ -419,6 +575,7 @@ class ChatService:
         return {
             "status": "healthy",
             "conversation_memory_status": "healthy" if self.memory_storage else "degraded",
+            "enhanced_memory_status": "healthy" if self.memory_manager else "unavailable",
             "document_processing_status": "healthy",
             "active_conversations": len(self.active_conversations),
             "uptime_seconds": uptime,
