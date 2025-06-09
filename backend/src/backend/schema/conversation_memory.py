@@ -1,6 +1,6 @@
 """Enhanced conversation memory models for advanced context management."""
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum
@@ -38,7 +38,8 @@ class ConversationMemoryConfig(BaseModel):
     max_conversation_length: int = Field(1000, description="Maximum messages before archival", ge=100)
     enable_background_processing: bool = Field(True, description="Enable background summary generation")
     
-    @validator('relevance_decay_factor')
+    @field_validator('relevance_decay_factor')
+    @classmethod
     def validate_decay_factor(cls, v):
         if not 0.1 <= v <= 1.0:
             raise ValueError("Decay factor must be between 0.1 and 1.0")

@@ -39,7 +39,7 @@ class ConversationMemoryManager:
         
         # Configure storage
         self.storage_path = Path(storage_path or self.settings.upload_base_dir) / "conversation_memory"
-        self.storage_path.mkdir(mode=0o700, exist_ok=True)
+        self.storage_path.mkdir(mode=0o700, parents=True, exist_ok=True)
         
         # Initialize database
         self.db_path = self.storage_path / "conversation_memory.db"

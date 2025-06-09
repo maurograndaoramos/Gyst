@@ -15,7 +15,7 @@ from ...schema.chat import (
     ChatStreamChunk, ConversationSummary, ChatHealth
 )
 from ...core.services.chat_service import get_chat_service
-from ...core.error_handling.circuit_breaker import CircuitBreakerOpenError
+from ...core.error_handling.circuit_breaker import CircuitBreakerError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ async def chat_message(request: ChatRequest) -> Union[ChatResponse, ChatErrorRes
         
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=error_response.dict()
+            content=error_response.model_dump(mode='json')
         )
         
     except FileNotFoundError as e:
@@ -119,7 +119,7 @@ async def chat_message(request: ChatRequest) -> Union[ChatResponse, ChatErrorRes
         
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
-            content=error_response.dict()
+            content=error_response.model_dump(mode='json')
         )
         
     except ValueError as e:
@@ -135,10 +135,10 @@ async def chat_message(request: ChatRequest) -> Union[ChatResponse, ChatErrorRes
         
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=error_response.dict()
+            content=error_response.model_dump(mode='json')
         )
         
-    except CircuitBreakerOpenError as e:
+    except CircuitBreakerError as e:
         error_msg = f"Service temporarily unavailable: {str(e)}"
         logger.error(error_msg)
         
@@ -152,7 +152,7 @@ async def chat_message(request: ChatRequest) -> Union[ChatResponse, ChatErrorRes
         
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=error_response.dict(),
+            content=error_response.model_dump(mode='json'),
             headers={"Retry-After": "30"}
         )
         
@@ -169,7 +169,7 @@ async def chat_message(request: ChatRequest) -> Union[ChatResponse, ChatErrorRes
         
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=error_response.dict()
+            content=error_response.model_dump(mode='json')
         )
 
 async def _stream_chat_response(request: ChatRequest) -> AsyncGenerator[str, None]:

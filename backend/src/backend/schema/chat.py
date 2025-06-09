@@ -1,6 +1,6 @@
 """Pydantic models for chat functionality."""
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -55,7 +55,8 @@ class ChatRequest(BaseModel):
         le=1.0
     )
 
-    @validator('document_paths')
+    @field_validator('document_paths')
+    @classmethod
     def validate_document_paths(cls, v):
         """Validate document paths for security."""
         if not v:
@@ -104,6 +105,11 @@ class ChatErrorResponse(BaseModel):
     details: Optional[str] = Field(None, description="Additional error details")
     retry_after: Optional[int] = Field(None, description="Seconds to wait before retrying")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
+    
+    model_config = {
+        "json_encoders": {datetime: lambda v: v.isoformat()},
+        "use_enum_values": True
+    }
 
 class ConversationSummary(BaseModel):
     """Model for conversation summary."""
