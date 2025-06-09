@@ -19,7 +19,8 @@ export class DocumentAnalysisService {
   constructor() {
     this.metadataService = new DocumentMetadataService();
     this.fileStorage = new FileStorageService();
-    this.pythonServiceUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+    // Add /api prefix to match backend route configuration
+    this.pythonServiceUrl = (process.env.PYTHON_SERVICE_URL || 'http://localhost:8000') + '/api';
   }
 
   /**
@@ -40,44 +41,53 @@ export class DocumentAnalysisService {
       const absolutePath = this.fileStorage.getAbsolutePath(metadata.filePath);
 
       // 3. Call Python service for analysis
-      const response = await fetch(`${this.pythonServiceUrl}/documents/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          document_path: absolutePath,
-          max_tags: 10,
-          generate_summary: true,
-        }),
-      });
+      try {
+        const response = await fetch(`${this.pythonServiceUrl}/documents/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            document_path: absolutePath,
+            max_tags: 10,
+            generate_summary: true,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`);
+        if (!response.ok) {
+          console.warn(`Analysis service returned status ${response.status}: ${response.statusText}`);
+          // Don't throw error, just return without tags
+          return;
+        }
+
+        const result: AnalysisResult = await response.json();
+
+        // 4. Update document metadata with new tags
+        if (!metadata.originalFilename || !metadata.mimeType || metadata.size === null) {
+          throw new Error('Document metadata incomplete');
+        }
+        
+        await this.metadataService.storeDocumentMetadata({
+          organizationId: metadata.organizationId,
+          projectId: metadata.projectId || undefined,
+          title: metadata.title,
+          content: metadata.content || undefined,
+          filePath: metadata.filePath, // Already validated above
+          originalFilename: metadata.originalFilename,
+          mimeType: metadata.mimeType,
+          size: metadata.size,
+          createdBy: metadata.createdBy,
+          tags: result.tags,
+        });
+
+      } catch (analysisError) {
+        // Log the error but don't throw it
+        console.warn('Document analysis failed, continuing without tags:', analysisError);
+        return;
       }
-
-      const result: AnalysisResult = await response.json();
-
-      // 4. Update document metadata with new tags
-      if (!metadata.originalFilename || !metadata.mimeType || metadata.size === null) {
-        throw new Error('Document metadata incomplete');
-      }
-      
-      await this.metadataService.storeDocumentMetadata({
-        organizationId: metadata.organizationId,
-        projectId: metadata.projectId || undefined,
-        title: metadata.title,
-        content: metadata.content || undefined,
-        filePath: metadata.filePath, // Already validated above
-        originalFilename: metadata.originalFilename,
-        mimeType: metadata.mimeType,
-        size: metadata.size,
-        createdBy: metadata.createdBy,
-        tags: result.tags,
-      });
 
     } catch (error) {
-      console.error('Document analysis failed:', error);
+      console.error('Document metadata error:', error);
       throw error;
     }
   }

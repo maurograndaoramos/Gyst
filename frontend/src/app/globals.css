@@ -178,4 +178,24 @@
     content: '';
     @apply absolute inset-0 bg-gray-100 bg-opacity-50 rounded;
   }
+
+  /* File upload success animation */
+  @keyframes success-pulse {
+    0% {
+      border-color: hsl(var(--border));
+      background-color: transparent;
+    }
+    50% {
+      border-color: hsl(142.1 76.2% 36.3%);
+      background-color: hsl(142.1 76.2% 36.3% / 0.1);
+    }
+    100% {
+      border-color: hsl(var(--border));
+      background-color: transparent;
+    }
+  }
+
+  .animate-success-flash {
+    animation: success-pulse 1s ease-in-out;
+  }
 }

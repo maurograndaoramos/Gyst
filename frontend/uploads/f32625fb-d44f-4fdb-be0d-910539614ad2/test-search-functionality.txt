@@ -1,0 +1,49 @@
+# Test Document for Search Functionality
+
+This is a test document created to verify the search functionality implementation in the GYST document management system.
+
+## Organization Details
+- Organization ID: f32625fb-d44f-4fdb-be0d-910539614ad2
+- Document Purpose: Testing search and file display functionality
+- Created: December 3, 2025
+
+## Test Content for Search
+
+This document contains various keywords and phrases that can be used to test the search functionality:
+
+### Technical Keywords
+- Database
+- FTS5
+- Full-text search
+- SQLite
+- React
+- NextAuth
+- TypeScript
+- API endpoints
+
+### Sample Content
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+
+### Project Keywords
+- GYST
+- Document management
+- Search implementation
+- Organization files
+- Dashboard interface
+
+## Search Test Cases
+
+1. **Basic Search**: Search for "test" should find this document
+2. **Technical Search**: Search for "FTS5" should highlight this term
+3. **Phrase Search**: Search for "document management" should match
+4. **Partial Search**: Search for "search" should find multiple matches
+
+## File Display Test
+
+When this file is selected in the sidebar, it should display properly in the main content area with:
+- Proper formatting
+- Readable text
+- Correct file name in breadcrumb
+- Full content visibility
+
+This test document verifies that the complete search and display pipeline is working correctly from the database layer through the API to the frontend interface.

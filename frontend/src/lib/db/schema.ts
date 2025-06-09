@@ -31,11 +31,10 @@ export const users = sqliteTable("user", {
   password: text("password"), // For credentials auth
   organizationId: text("organizationId")
     .references(() => organizations.id, { onDelete: "cascade" }),
+  role: text("role", { mode: "text" }).$type<"admin" | "user">().notNull().$default(() => "admin"),
   created_at: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
     .$defaultFn(() => new Date()),
   updated_at: integer("updated_at", { mode: "timestamp_ms" })
-    .notNull()
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date()),
 })
@@ -55,7 +54,7 @@ export const accounts = sqliteTable("account", {
     id_token: text("id_token"),
     session_state: text("session_state"),
   },
-  (account: typeof accounts.$inferSelect) => [
+  (account) => [
     primaryKey({
       columns: [account.provider, account.providerAccountId],
     }),
@@ -77,7 +76,7 @@ export const verificationTokens = sqliteTable(
     token: text("token").notNull(),
     expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
   },
-  (verificationToken: typeof verificationTokens.$inferSelect) => [
+  (verificationToken) => [
     primaryKey({
       columns: [verificationToken.identifier, verificationToken.token],
     }),
@@ -100,7 +99,7 @@ export const authenticators = sqliteTable(
     }).notNull(),
     transports: text("transports"),
   },
-  (authenticator: typeof authenticators.$inferSelect) => [
+  (authenticator) => [
     primaryKey({
       columns: [authenticator.userId, authenticator.credentialID],
     }),
@@ -183,9 +182,9 @@ export const tags = sqliteTable("tag", {
     .notNull()
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date())
-}, (table: typeof tags) => ({
+}, (table) => ({
   // Case-insensitive unique index on tag name
-  tagNameUniqueIdx: uniqueIndex("tag_name_unique_idx").on(lower(table.name)),
+  tagNameUniqueIdx: uniqueIndex("tag_name_unique_idx").on(sql`lower(${table.name})`),
 }));
 
 export const documentTags = sqliteTable("document_tag", {
@@ -203,7 +202,7 @@ export const documentTags = sqliteTable("document_tag", {
     .notNull()
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date())
-}, (table: typeof documentTags) => ({
+}, (table) => ({
   // Composite primary key
   pk: primaryKey({ columns: [table.documentId, table.tagId] }),
   // Index for querying by tagId

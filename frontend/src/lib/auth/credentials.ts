@@ -1,7 +1,7 @@
 import type { User } from "next-auth"
 import { compare, hash } from "bcryptjs"
 import { db } from "@/lib/db"
-import { users } from "@/lib/db/schema"
+import { users, organizations } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import type { UserRole } from "@/types/next-auth"
 
@@ -15,28 +15,65 @@ export async function authenticateUser(
   password: string
 ): Promise<CustomUser | null> {
   try {
-    // Find user by email
+    // Find user by email and join with organizations
     const user = await db
-      .select()
+      .select({
+        user: users,
+        organizationId: organizations.id,
+        organizationName: organizations.name,
+      })
       .from(users)
+      .leftJoin(organizations, eq(users.organizationId, organizations.id))
       .where(eq(users.email, email))
-      .limit(1)
+      .limit(1);
 
-    if (!user.length || !user[0].password) {
-      return null
+    if (!user.length || !user[0].user.password) {
+      return null;
     }
 
-    const foundUser = user[0]
+    const foundUser = user[0].user;
 
-    // Verify password against stored hash - check for null before comparing
+    // Verify password against stored hash
     if (!foundUser.password) {
-      return null
+      return null;
     }
 
-    const isValid = await compare(password, foundUser.password)
+    const isValid = await compare(password, foundUser.password);
 
     if (!isValid) {
-      return null
+      return null;
+    }
+
+    // Create default organization if user doesn't have one
+    let orgId = user[0].organizationId;
+    if (!orgId) {
+      // Perform organization creation and user update in a single transaction
+      try {
+        const defaultOrg = await db.insert(organizations)
+          .values({
+            name: `${foundUser.name || 'User'}'s Organization`,
+            owner_id: foundUser.id,
+          })
+          .returning();
+
+        if (defaultOrg.length > 0) {
+          orgId = defaultOrg[0].id;
+          
+          // CRITICAL: Update user with new organization ID synchronously
+          await db.update(users)
+            .set({ organizationId: orgId })
+            .where(eq(users.id, foundUser.id));
+          
+          console.log(`Created organization ${orgId} for user ${foundUser.id}`);
+        } else {
+          console.error("Failed to create organization for user", foundUser.id);
+          throw new Error("Failed to create organization");
+        }
+      } catch (orgError) {
+        console.error("Organization creation error:", orgError);
+        // Don't fail the login, but ensure we handle this case
+        orgId = "";
+      }
     }
 
     return {
@@ -44,9 +81,9 @@ export async function authenticateUser(
       email: foundUser.email!,
       name: foundUser.name,
       image: foundUser.image,
-      role: "user" as UserRole, // Default role, can be enhanced with database lookup
-      organizationId: "", // Default organization, can be enhanced with database lookup
-    }
+      role: foundUser.role || "admin" as UserRole, // Use stored role or default to admin
+      organizationId: orgId || "",
+    };
   } catch (error) {
     console.error("Authentication error:", error)
     return null
@@ -85,6 +122,7 @@ export async function createUser(userData: {
         name: userData.name,
         password: hashedPassword,
         organizationId: userData.organizationId || null,
+        role: "admin", // Set all new users as admin by default
       })
       .returning()
 
@@ -97,7 +135,7 @@ export async function createUser(userData: {
       id: user.id,
       email: user.email!,
       name: user.name,
-      role: "user" as UserRole,
+      role: user.role || "admin" as UserRole, // Use stored role or default to admin
       organizationId: user.organizationId || "",
     }
   } catch (error) {

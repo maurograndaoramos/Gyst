@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/hooks/use-auth"
 
 export function LoginForm({
   className,
@@ -53,7 +54,6 @@ export function LoginForm({
     setLoading(true);
     
     try {
-      // Use NextAuth to sign in with credentials
       const { signIn } = await import('next-auth/react');
       const result = await signIn('credentials', {
         email,
@@ -62,11 +62,12 @@ export function LoginForm({
       });
 
       if (result?.ok) {
-        // Login successful - redirect to organization dashboard
-        window.location.href = '/org-placeholder/dashboard';
-      } else {
-        // Login failed
+        // Redirect to callback page which will handle session initialization
+        window.location.href = '/auth/callback';
+      } else if (result?.error === 'CredentialsSignin') {
         setGeneralError('Invalid email or password.');
+      } else {
+        setGeneralError('An error occurred during login. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -159,11 +160,37 @@ export function LoginForm({
             Or continue with
           </span>
         </div>
-        <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+        <Button 
+          type="button"
+          variant="outline" 
+          className="w-full flex items-center justify-center gap-2"
+          onClick={async () => {
+            try {
+              const { signIn } = await import('next-auth/react');
+              await signIn('github', { callbackUrl: '/' });
+            } catch (error) {
+              console.error('GitHub sign in error:', error);
+              setGeneralError('Failed to sign in with GitHub. Please try again.');
+            }
+          }}
+        >
           <img src="/github.svg" alt="GitHub logo" className="h-6 w-6" />
           Login with GitHub
         </Button>
-        <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+        <Button 
+          type="button"
+          variant="outline" 
+          className="w-full flex items-center justify-center gap-2"
+          onClick={async () => {
+            try {
+              const { signIn } = await import('next-auth/react');
+              await signIn('google', { callbackUrl: '/' });
+            } catch (error) {
+              console.error('Google sign in error:', error);
+              setGeneralError('Failed to sign in with Google. Please try again.');
+            }
+          }}
+        >
           <img src="/google_icon.svg" alt="Google logo" className="h-6 w-6" />
           Login with Google
         </Button>
