@@ -1,6 +1,7 @@
-.venv
+*.venv
 build
 *backend.egg-info
 __pycache__
-
 .env
+clean_pycache.sh
+
