@@ -115,6 +115,11 @@ export default function RotatingAgentThoughtProcess({
 
   const currentStep = agentSteps[currentStepIndex];
   const totalSteps = agentSteps.length;
+  
+  // Check if all steps are completed (independent of current rotation)
+  const allStepsCompleted = agentSteps.every(step => 
+    step.status.toLowerCase() === 'completed'
+  );
 
   return (
     <div className="w-full space-y-3">
@@ -137,7 +142,7 @@ export default function RotatingAgentThoughtProcess({
                   className={`w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
                     index === currentStepIndex 
                       ? 'bg-indigo-500' 
-                      : index < currentStepIndex 
+                      : allStepsCompleted || agentSteps[index].status.toLowerCase() === 'completed'
                         ? 'bg-green-400' 
                         : 'bg-gray-300'
                   }`}
@@ -197,14 +202,14 @@ export default function RotatingAgentThoughtProcess({
           <div 
             className="bg-indigo-500 h-1 rounded-full transition-all duration-300"
             style={{ 
-              width: `${(currentStepIndex / (totalSteps - 1)) * 100}%` 
+              width: allStepsCompleted ? '100%' : `${(currentStepIndex / (totalSteps - 1)) * 100}%` 
             }}
           />
         </div>
       )}
 
-      {/* Final completion status */}
-      {!isProcessing && currentStepIndex === totalSteps - 1 && (
+      {/* Final completion status - now persistent once all steps are completed */}
+      {!isProcessing && allStepsCompleted && (
         <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded-lg">
           <CheckCircle className="h-4 w-4" />
           <span>Analysis completed successfully</span>
