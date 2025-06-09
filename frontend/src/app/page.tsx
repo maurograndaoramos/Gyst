@@ -123,7 +123,7 @@ export default function Component() {
             </motion.p>
 
             <motion.h1 
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-8 text-gray-900"
+              className="text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-8 text-gray-900"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.7 }}
@@ -136,9 +136,9 @@ export default function Component() {
               >Answers</motion.span></span>{" "}
               <span className="block sm:inline">to Your</span>
               <br className="hidden sm:block" />
-              <span className="block">Documentation —</span>{" "}
+              <span className="inline">Documentation — </span>
               <motion.span 
-                className="text-purple-600 block sm:inline"
+                className="text-purple-600 inline"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5, delay: 1.4 }}
@@ -169,7 +169,7 @@ export default function Component() {
             </motion.button>
           </motion.div>
 
-          {/* Product Demo Placeholder */}
+          {/* Product Demo */}
           <motion.div 
             className="relative max-w-6xl mx-auto"
             style={{ y: demoY }}
@@ -191,25 +191,37 @@ export default function Component() {
               }
             `}</style>
             <motion.div 
-              className="bg-gray-200 rounded-lg overflow-hidden shadow-2xl border border-gray-300 h-[650px] flex items-center justify-center purple-glow"
+              className="relative rounded-xl overflow-hidden shadow-2xl border border-gray-300 purple-glow"
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="text-center">
-                <motion.div 
-                  className="w-24 h-24 mx-auto mb-6 bg-gray-400 rounded-lg flex items-center justify-center"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                >
-                  <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </motion.div>
-                <h3 className="text-2xl font-semibold text-gray-700 mb-2">Product Demo</h3>
-                <p className="text-gray-500 max-w-md mx-auto">
-                  Interactive demonstration of GYST's AI-powered documentation chat interface will be displayed here.
-                </p>
-              </div>
+              <motion.img
+                src="/dashboard-placeholder.png"
+                alt="GYST Dashboard - AI-powered documentation management interface"
+                className="w-full h-auto object-cover"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, delay: 1.5 }}
+              />
+              {/* Overlay for better visual effect */}
+              <motion.div 
+                className="absolute inset-0 bg-gradient-to-t from-purple-900/20 via-transparent to-transparent pointer-events-none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1, delay: 1.8 }}
+              />
+              {/* Demo Badge */}
+              <motion.div 
+                className="absolute top-6 left-6 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 2 }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-semibold text-gray-700">Live Demo</span>
+                </div>
+              </motion.div>
             </motion.div>
           </motion.div>
         </motion.div>
