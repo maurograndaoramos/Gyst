@@ -15,39 +15,53 @@ export async function validateFile(
     errors.push(`File size ${(fileSize / 1024 / 1024).toFixed(2)}MB exceeds maximum allowed size of 5MB`)
   }
 
-  // 2. Detect actual MIME type from file content
-  let detectedMimeType: string | undefined
-  try {
-    const fileType = await fileTypeFromBuffer(buffer.slice(0, 4100)) // Read first 4KB for detection
-    detectedMimeType = fileType?.mime
-  } catch (error) {
-    errors.push('Failed to detect file type from content')
-  }
+  // 2. File type detection and validation
+  let detectedMimeType: string | undefined;
 
-  // 3. MIME type validation
-  if (!detectedMimeType) {
-    // For text files, file-type might not detect MIME type
-    if (filename.endsWith('.txt') || filename.endsWith('.md')) {
-      // Additional validation for text files
-      const isValidText = isValidTextFile(buffer)
-      if (isValidText) {
-        detectedMimeType = filename.endsWith('.md') ? 'text/markdown' : 'text/plain'
-      } else {
-        errors.push('File appears to be corrupted or not a valid text file')
-      }
+  // Handle text-based files (.txt and .md)
+  if (filename.endsWith('.txt') || filename.endsWith('.md')) {
+    const isValidText = isValidTextFile(buffer);
+    if (isValidText) {
+      detectedMimeType = filename.endsWith('.md') ? 'text/markdown' : 'text/plain';
     } else {
-      errors.push('Unable to determine file type - file may be corrupted')
+      errors.push('File appears to be corrupted or not a valid text file');
+    }
+  } else {
+    // For other file types (PDF, DOCX), detect MIME type
+    try {
+      const fileType = await fileTypeFromBuffer(buffer.slice(0, 4100));
+      detectedMimeType = fileType?.mime;
+    } catch (error) {
+      errors.push('Failed to detect file type from content');
     }
   }
 
-  // 4. Check if detected MIME type is supported
-  if (detectedMimeType && !SUPPORTED_MIME_TYPES.includes(detectedMimeType as any)) {
-    errors.push(`Unsupported file type: ${detectedMimeType}. Supported types: ${SUPPORTED_MIME_TYPES.join(', ')}`)
+  // 3. File type validation
+  const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+  const expectedMimeType = {
+    '.txt': 'text/plain',
+    '.md': 'text/markdown',
+    '.pdf': 'application/pdf',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  }[ext];
+
+  // 4. MIME type validation with more lenient rules
+  if (!detectedMimeType && !expectedMimeType) {
+    errors.push('Unable to determine file type - file may be corrupted');
+  } else if (detectedMimeType && !SUPPORTED_MIME_TYPES.includes(detectedMimeType as any)) {
+    // If we detected a MIME type but it's not in our supported list
+    errors.push(`Unsupported file type. Supported files: ${SUPPORTED_EXTENSIONS.join(', ')}`);
   }
 
-  // 5. Cross-validate reported vs detected MIME type
+  // 5. Cross-validate MIME types with more lenient rules for text files
   if (detectedMimeType && reportedMimeType && detectedMimeType !== reportedMimeType) {
-    errors.push(`File content (${detectedMimeType}) doesn't match reported type (${reportedMimeType})`)
+    // For text files, accept if either type is text/*
+    const isTextFile = (filename.endsWith('.txt') || filename.endsWith('.md'));
+    const isTextMime = (mime: string) => mime.startsWith('text/');
+    
+    if (!isTextFile || !(isTextMime(detectedMimeType) || isTextMime(reportedMimeType))) {
+      errors.push('File type mismatch - please ensure you are uploading the correct file type');
+    }
   }
 
   // 6. Extension validation

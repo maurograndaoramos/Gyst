@@ -2,21 +2,13 @@
 import * as React from "react"
 import { FileDisplay } from "@/components/ui/fileDisplay";
 import { AppSidebar } from "@/components/app-sidebar"
-// import { Textarea } from "@/components/ui/textarea"; // Textarea seems unused
-// import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar"; // Avatar seems unused
 import FileValidator, { type FileWithPreview } from "@/components/FileValidator"; 
 import UploadProgressModal, { type FileProgress } from "@/components/UploadProgressModal";
 import { useAuth } from "@/hooks/use-auth";
 import { useParams } from "next/navigation";
 import { signOut } from "next-auth/react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { useTabs } from "@/hooks/use-tabs";
+import { TabList } from "@/components/ui/tabs/TabList";
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -25,27 +17,24 @@ import {
 } from "@/components/ui/sidebar"
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronRight, File, Folder, PanelRightClose, PanelRightOpen, Send } from "lucide-react"
+import { ChevronRight, File } from "lucide-react"
 import ChatInterface from "@/components/chatInterface";
 import { LoadingSpinner } from "@/components/auth/loading-spinner"
 
-
-// Types for file data
-interface FileData {
-  id: string
-  title: string
-  originalFilename: string | null
-  filePath: string | null
-  content: string | null
-  createdAt: Date | null
-}
+import type { FileData } from "@/types/file";
 
 export default function Page() {
   const [width, setWidth] = useState(450);
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const { tabs, activeTabId, activeTab, addTab, closeTab, setTabModified, reorderTabs, key } = useTabs({
+    maxTabs: 10,
+    onTabLimitReached: () => {
+      // TODO: Add toast notification
+      console.warn("Maximum number of tabs reached");
+    }
+  });
   const [uploadingFiles, setUploadingFiles] = useState<FileProgress[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -58,7 +47,43 @@ export default function Page() {
   const [hasCheckedOrg, setHasCheckedOrg] = useState(false);
   const [files, setFiles] = useState<FileData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
   const isAdmin = role === 'admin';
+
+  const handleFilesReorder = async (reorderedFiles: FileData[]) => {
+    if (!isAdmin) return;
+    setFiles(reorderedFiles);
+
+    // Optimistically update the UI first
+    const fileOrder = reorderedFiles.map((file, index) => ({
+      id: file.id,
+      order: index
+    }));
+
+    // Then persist to backend
+    try {
+      setIsReordering(true);
+      const response = await fetch(`/api/files/reorder?organizationId=${organizationId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileOrder })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update file order');
+      }
+    } catch (error) {
+      console.error('Error updating file order:', error);
+      // Reload files to reset to server state
+      if (organizationId && hasCheckedOrg) {
+        fetchFiles();
+      }
+    } finally {
+      setIsReordering(false);
+    }
+  };
 
   // All useEffect hooks MUST come before any conditional returns
   // Fix for "Rendered more hooks than during the previous render" error
@@ -83,27 +108,34 @@ export default function Page() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
+  // Fetch files function
+  const fetchFiles = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/files?organizationId=${organizationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFiles(data);
+      }
+    } catch (error) {
+      console.error('Error fetching files:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch files when component mounts or organizationId changes
   useEffect(() => {
-    const fetchFiles = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/files?organizationId=${organizationId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setFiles(data);
-        }
-      } catch (error) {
-        console.error('Error fetching files:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (organizationId && hasCheckedOrg) {
       fetchFiles();
     }
   }, [organizationId, hasCheckedOrg]);
+
+  // Debug logging for tab state
+  useEffect(() => {
+    console.log('Current tabs:', tabs);
+    console.log('Active tab:', activeTab);
+  }, [tabs, activeTab]);
 
   // Define mouse event handlers BEFORE the useEffect that uses them
   const handleLogout = async () => {
@@ -176,9 +208,11 @@ export default function Page() {
     );
   }
 
-
   const handleFileSelect = (file: FileData) => {
-    setSelectedFile(file);
+    console.log('File selected:', file);
+    if (activeTabId === file.id) return; // Don't re-add if already active
+    const added = addTab(file);
+    console.log('Tab added:', added);
   };
 
   const handleFilesValidated = async (validFiles: FileWithPreview[]) => {
@@ -202,27 +236,43 @@ export default function Page() {
         
         formData.append('file', fileProgress.originalFile);
         
-        const xhr = new XMLHttpRequest();
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded * 100) / event.total);
-            setUploadingFiles(prevFiles => 
-              prevFiles.map(f => 
-                f.id === fileProgress.id 
-                  ? { ...f, progress, status: 'uploading' }
-                  : f
-              )
+        // Update status to uploading before starting the upload
+        setUploadingFiles(prevFiles => 
+          prevFiles.map(f => 
+            f.id === fileProgress.id 
+              ? { ...f, status: 'uploading', progress: 0 }
+              : f
+          )
+        );
+
+        // Create fake progress updates
+        const progressInterval = setInterval(() => {
+          setUploadingFiles(prevFiles => {
+            const currentFile = prevFiles.find(f => f.id === fileProgress.id);
+            if (!currentFile || currentFile.status !== 'uploading') {
+              clearInterval(progressInterval);
+              return prevFiles;
+            }
+            const newProgress = Math.min(95, (currentFile.progress || 0) + 5);
+            return prevFiles.map(f => 
+              f.id === fileProgress.id 
+                ? { ...f, progress: newProgress }
+                : f
             );
-          }
-        });
+          });
+        }, 100);
 
         const response = await fetch(`/api/documents/upload?organizationId=${organizationId}`, {
           method: 'POST',
           body: formData
         });
 
+        // Clear the progress interval
+        clearInterval(progressInterval);
+
         if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
         }
 
         setUploadingFiles(prevFiles =>
@@ -232,6 +282,9 @@ export default function Page() {
               : f
           )
         );
+
+        // Refresh file list after successful upload
+        await fetchFiles();
 
       } catch (error) {
         console.error('Upload error:', error);
@@ -246,6 +299,9 @@ export default function Page() {
               : f
           )
         );
+      } finally {
+        // Always refresh the file list to ensure it's up to date
+        await fetchFiles();
       }
     }
   };
@@ -275,9 +331,6 @@ export default function Page() {
     handleFilesValidated([fileWithPreview]);
   };
 
-  // Split the file path into segments for the breadcrumb
-  const pathSegments = selectedFile?.filePath?.split('/').filter(Boolean) || [];
-
   // Configure drag and drop for FileValidator
   const handleDragDrop = (files: File[]) => {
     const filesWithPreview = files.map(file => ({
@@ -293,51 +346,48 @@ export default function Page() {
   return (
     <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
       <SidebarProvider>
-        <AppSidebar
-          onFileSelect={handleFileSelect}
-          organizationId={organizationId}
-          files={files}
-          loading={loading}
+          <AppSidebar
+            onFileSelect={handleFileSelect}
+            onFilesReorder={handleFilesReorder}
+            organizationId={organizationId}
+            files={files}
+            loading={loading || isReordering}
         />
         <SidebarInset>
-          <header className="border-b border-gray-400 sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-2 bg-background px-4">
-            <div className="flex items-center gap-2">
+          <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between bg-background">
+            <div className="flex items-center gap-2 min-w-0 flex-1 h-16 px-4 mr-4">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  {pathSegments.map((segment, index) => {
-                    const isLast = index === pathSegments.length - 1;
-                    const path = pathSegments.slice(0, index + 1).join('/');
-      
-                    return (
-                      <React.Fragment key={path}>
-                        <BreadcrumbItem className="hidden md:block">
-                          {isLast ? (
-                            <BreadcrumbPage>{segment}</BreadcrumbPage>
-                          ) : (
-                            <BreadcrumbLink href="#">{segment}</BreadcrumbLink>
-                          )}
-                        </BreadcrumbItem>
-                        {!isLast && (
-                          <BreadcrumbSeparator className="hidden md:block" />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                  {pathSegments.length === 0 && (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>No file selected</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
+              <div className="flex-1 min-w-0">
+                <TabList
+                  key={key}
+                  className="w-full"
+                  tabKey={key}
+                  tabs={tabs.map(tab => ({
+                    id: tab.id,
+                    label: tab.file.originalFilename || tab.file.title,
+                    isActive: tab.id === activeTabId,
+                    isModified: tab.isModified
+                  }))}
+                  onTabSelect={id => {
+                    const tab = tabs.find(t => t.id === id);
+                    if (tab) {
+                      addTab(tab.file);
+                      setTabModified(id, false);
+                    }
+                  }}
+                  onTabClose={closeTab}
+                  onTabsReorder={newTabs => {
+                    reorderTabs(newTabs.map(t => tabs.find(tab => tab.id === t.id)!));
+                  }}
+                />
+              </div>
             </div>
             <div>
       
             </div>
-            <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">Welcome, {user?.role} {user?.name}</span>
+            <div className="flex items-center gap-3 px-4">
+                <span className="text-sm font-medium text-muted-foreground">Welcome, {user?.role} {user?.name}</span>
               <div className="relative" ref={dropdownRef}>
                 <div
                   id="profile-pic"
@@ -365,21 +415,31 @@ export default function Page() {
               className="flex-1 h-full"
               style={{ marginRight: isCollapsed ? 0 : width }}
             >
-              {isAdmin && (
-                <div className="w-full h-full absolute inset-0 bg-transparent hover:bg-black/5 transition-colors z-10 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2 data-[dragover=true]:bg-primary/10 data-[dragover=true]:ring-2 data-[dragover=true]:ring-primary/40">
-                  <FileValidator 
-                    onFilesReadyForUpload={(validFiles) => {
-                      handleFilesValidated(validFiles);
-                    }}
-                    customClasses={{
-                      root: "!bg-transparent",
-                      dropzone: "!border-none",
-                    }}
-                  />
-                </div>
-              )}
-              <div className="relative z-0">
-                <FileDisplay content={selectedFile?.content || ''} />
+              {/* Content Layer */}
+              <div className={`absolute inset-0 bg-white border-t ${activeTab ? 'z-30' : 'z-20'}`}>
+                {/* Admin Upload Area */}
+                {isAdmin && !activeTab && (
+                  <div className="w-full h-[calc(100vh-4rem)] flex items-center justify-center z-10">
+                    <FileValidator 
+                      onFilesReadyForUpload={handleFilesValidated}
+                      customClasses={{
+                        root: "bg-transparent shadow-none border-none",
+                        dropzone: "border-2 border-dashed border-gray-300 hover:border-primary transition-colors hover:bg-black/5",
+                      }}
+                    />
+                  </div>
+                )}
+                {activeTab ? (
+                  <div className="w-full h-full">
+                    <div className="p-4">
+                      <FileDisplay content={activeTab.file.content || ''} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-muted-foreground">Select a file to view its content</span>
+                  </div>
+                )}
               </div>
               {showUploadModal && (
                 <UploadProgressModal

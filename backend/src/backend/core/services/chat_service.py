@@ -5,7 +5,7 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional, AsyncGenerator, Tuple
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from crewai import Agent, Task, Crew
 from crewai.memory import LongTermMemory
@@ -79,7 +79,7 @@ class ChatService:
         self.active_conversations: Dict[str, ConversationContext] = {}
         
         # Service startup time
-        self.startup_time = datetime.utcnow()
+        self.startup_time = datetime.now(UTC)
         
         logger.info("Chat service initialized successfully")
     
@@ -304,7 +304,7 @@ class ChatService:
                     agent_name="AI Assistant",
                     agent_role="Task Processing",
                     thought_process="Successfully processed your request and generated a response.",
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(UTC),
                     status="completed"
                 )
                 agent_steps = [fallback_step]
@@ -317,7 +317,7 @@ class ChatService:
                 agent_name="AI Assistant",
                 agent_role="General Assistant",
                 thought_process="Processing your request and generating a helpful response.",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 status="completed"
             )
             agent_steps = [fallback_step]
@@ -474,7 +474,7 @@ class ChatService:
         if conversation_id in self.active_conversations:
             context = self.active_conversations[conversation_id]
             context.message_history.extend(new_messages)
-            context.last_activity = datetime.utcnow()
+            context.last_activity = datetime.now(UTC)
             context.document_context.extend(document_paths)
         else:
             # Create new conversation context
@@ -482,7 +482,7 @@ class ChatService:
                 conversation_id=conversation_id,
                 message_history=new_messages,
                 document_context=document_paths,
-                last_activity=datetime.utcnow(),
+                last_activity=datetime.now(UTC),
                 metadata={}
             )
     
@@ -687,7 +687,7 @@ class ChatService:
     
     def _parse_crew_result_string(self, result_str: str) -> List[Dict[str, Any]]:
         """Parse CrewAI result string to extract agent execution steps."""
-        execution_steps = []
+        execution_steps: List[Dict[str, Any]] = []
         
         try:
             # Simple fallback: create steps based on detected agents or tasks
@@ -708,7 +708,7 @@ class ChatService:
                         'agent_name': 'AI Assistant',
                         'agent_role': 'Processing',
                         'thought_process': line,
-                        'timestamp': datetime.utcnow() - timedelta(seconds=len(execution_steps) * 2)
+                        'timestamp': datetime.now(UTC) - timedelta(seconds=len(execution_steps) * 2)
                     }
                 elif current_step:
                     # Append to current step
@@ -724,7 +724,7 @@ class ChatService:
                     'agent_name': 'AI Assistant',
                     'agent_role': 'General Assistant',
                     'thought_process': f"Processing your request: {result_str[:200]}...",
-                    'timestamp': datetime.utcnow()
+                    'timestamp': datetime.now(UTC)
                 })
                 
         except Exception as e:
@@ -734,7 +734,7 @@ class ChatService:
                 'agent_name': 'AI Assistant',
                 'agent_role': 'General Assistant',
                 'thought_process': "Processing your request...",
-                'timestamp': datetime.utcnow()
+                'timestamp': datetime.now(UTC)
             }]
         
         return execution_steps
@@ -768,7 +768,7 @@ class ChatService:
                             agent_name=agent_name,
                             agent_role=agent_role,
                             thought_process=self._clean_agent_thought_process(thought_process),
-                            timestamp=datetime.utcnow() - timedelta(seconds=(len(crew_result.tasks_output) - i) * 2),
+                            timestamp=datetime.now(UTC) - timedelta(seconds=(len(crew_result.tasks_output) - i) * 2),
                             status="completed"
                         )
                         agent_steps.append(step)
@@ -784,15 +784,15 @@ class ChatService:
                         agent_name="Document Context Specialist",
                         agent_role="Context Analysis",
                         thought_process="Analyzed available documents and extracted relevant context for the user's query.",
-                        timestamp=datetime.utcnow() - timedelta(seconds=4),
-                        status="completed"
+                    timestamp=datetime.now(UTC) - timedelta(seconds=4),
+                    status="completed"
                     ),
                     AgentStep(
                         agent_name="AI Assistant",
                         agent_role="Response Generation",
                         thought_process="Generated a comprehensive response based on the context analysis and user requirements.",
-                        timestamp=datetime.utcnow() - timedelta(seconds=2),
-                        status="completed"
+                    timestamp=datetime.now(UTC) - timedelta(seconds=2),
+                    status="completed"
                     )
                 ]
                 agent_steps.extend(basic_steps)
@@ -806,7 +806,7 @@ class ChatService:
                     agent_name="AI Assistant",
                     agent_role="Task Processing",
                     thought_process="Successfully processed your request and generated a response.",
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(UTC),
                     status="completed"
                 )
             ]
@@ -889,7 +889,7 @@ class ChatService:
 
     def get_health_status(self) -> Dict[str, Any]:
         """Get health status of the chat service."""
-        uptime = (datetime.utcnow() - self.startup_time).total_seconds()
+        uptime = (datetime.now(UTC) - self.startup_time).total_seconds()
         
         return {
             "status": "healthy",
@@ -898,7 +898,7 @@ class ChatService:
             "document_processing_status": "healthy",
             "active_conversations": len(self.active_conversations),
             "uptime_seconds": uptime,
-            "last_check": datetime.utcnow()
+            "last_check": datetime.now(UTC)
         }
 
 # Global service instance

@@ -2,7 +2,7 @@
 import logging
 import re
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 from dataclasses import dataclass
 
 from crewai.utilities.events import (
@@ -52,7 +52,7 @@ class CrewAIExecutionListener(BaseEventListener):
         @crewai_event_bus.on(CrewKickoffStartedEvent)
         def on_crew_kickoff_started(source, event: CrewKickoffStartedEvent):
             """Handle crew kickoff started event."""
-            self.crew_started_at = datetime.utcnow()
+            self.crew_started_at = datetime.now(UTC)
             logger.info(f"Crew kickoff started for conversation {self.conversation_id}")
             
             # Create initial step for crew startup
@@ -68,7 +68,7 @@ class CrewAIExecutionListener(BaseEventListener):
         @crewai_event_bus.on(CrewKickoffCompletedEvent)
         def on_crew_kickoff_completed(source, event: CrewKickoffCompletedEvent):
             """Handle crew kickoff completed event."""
-            self.crew_completed_at = datetime.utcnow()
+            self.crew_completed_at = datetime.now(UTC)
             logger.info(f"Crew kickoff completed for conversation {self.conversation_id}")
             
             # Create completion step
@@ -87,7 +87,7 @@ class CrewAIExecutionListener(BaseEventListener):
             try:
                 agent = event.agent
                 output = event.output
-                timestamp = datetime.utcnow()
+                timestamp = datetime.now(UTC)
                 
                 # Extract agent information
                 agent_name = getattr(agent, 'role', 'Unknown Agent')
@@ -116,7 +116,7 @@ class CrewAIExecutionListener(BaseEventListener):
             """Handle tool usage started event."""
             try:
                 tool_name = event.tool_name
-                timestamp = datetime.utcnow()
+                timestamp = datetime.now(UTC)
                 
                 # Record tool usage
                 tool_event = {
@@ -140,7 +140,7 @@ class CrewAIExecutionListener(BaseEventListener):
             """Handle tool usage error event."""
             try:
                 error = event.error
-                timestamp = datetime.utcnow()
+                timestamp = datetime.now(UTC)
                 
                 # Create error step
                 error_step = ExecutionStep(
@@ -163,7 +163,7 @@ class CrewAIExecutionListener(BaseEventListener):
             try:
                 # Store task evaluation data
                 task_data = {
-                    'timestamp': datetime.utcnow(),
+                    'timestamp': datetime.now(UTC),
                     'event': event
                 }
                 self.task_outputs.append(task_data)
@@ -387,10 +387,10 @@ class CrewAIExecutionListener(BaseEventListener):
         
         return consolidated
     
-    def add_step_from_callback(self, step_output: Any, agent_name: str = None, agent_role: str = None):
+    def add_step_from_callback(self, step_output: Any, agent_name: Optional[str] = None, agent_role: Optional[str] = None):
         """Add execution step from step callback."""
         try:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(UTC)
             
             # Extract information from step output
             if hasattr(step_output, 'agent') and step_output.agent:
@@ -460,7 +460,7 @@ class CrewAIExecutionListener(BaseEventListener):
     
     def _create_fallback_steps(self) -> List[AgentStep]:
         """Create fallback steps if filtering/consolidation fails."""
-        fallback_time = datetime.utcnow()
+        fallback_time = datetime.now(UTC)
         
         return [
             AgentStep(
