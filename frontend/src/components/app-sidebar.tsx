@@ -103,8 +103,8 @@ export function AppSidebar({ organizationId, files, onFileSelect, loading, ...pr
 
   // Filter local files for display when no search query
   const displayFiles = React.useMemo(() => {
-    if (debouncedSearch) return searchResults;
-    return files;
+    if (debouncedSearch) return searchResults || [];
+    return files || [];
   }, [debouncedSearch, searchResults, files]);
 
   // Sync selected tags with URL
@@ -183,14 +183,10 @@ export function AppSidebar({ organizationId, files, onFileSelect, loading, ...pr
   return (
     <Sidebar {...props}>
       <SidebarContent>
-        {/* Header */}
-        <SidebarGroup>
-          <div className="flex flex-row select-none p-2">
-            <img src="/gyst-logo-black.png" alt="GYST Logo" className="h-6 w-6 mb-8" />
+          <div className="flex flex-row select-none p-4 sticky top-0 bg-background z-10 bb-1 w-full">
+            <img src="/gyst-remake-flip.png" alt="GYST Logo" className="h-6 w-6 mb-2" />
             <h1 className="ml-2 font-semibold ">GYST</h1>
           </div>
-        </SidebarGroup>
-
         {/* Tag Filter Section */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center justify-between">

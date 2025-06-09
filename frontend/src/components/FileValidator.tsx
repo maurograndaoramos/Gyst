@@ -1,37 +1,83 @@
 // frontend/src/components/FileValidator.tsx
-import React, { useState, useCallback } from 'react';
-import { useDropzone, FileWithPath, FileRejection } from 'react-dropzone';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Upload, FileText, FileCode, FileCheck } from 'lucide-react';
+import { useDropzone, FileWithPath, FileRejection, DropzoneOptions } from 'react-dropzone';
 import useFileValidation from '@/hooks/useFileValidation';
+import type { InputHTMLAttributes } from 'react';
 import { SUPPORTED_EXTENSIONS, MAX_FILE_SIZE } from '@/lib/types/upload';
 
-interface FileWithPreview extends FileWithPath {
+export interface FileWithPreview extends FileWithPath {
   preview: string;
   isValid?: boolean;
   errors?: string[];
+  processedForUpload?: boolean; // Flag to track if the file has been processed for upload
 }
 
-const FileValidator: React.FC = () => {
+interface FileValidatorProps {
+  onFilesReadyForUpload: (files: FileWithPreview[]) => void;
+  processedFilePaths?: string[]; // Optional: to prevent re-uploading files already processed by parent
+  customClasses?: {
+    root?: string;
+    dropzone?: string;
+  };
+}
+
+const FileValidator: React.FC<FileValidatorProps> = ({ 
+  onFilesReadyForUpload, 
+  processedFilePaths = [],
+  customClasses = {} 
+}) => {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
+  const [justDropped, setJustDropped] = useState(false);
   const { validate, isLoading: isValidating, error: validationHookError } = useFileValidation();
 
   const onDrop = useCallback(async (acceptedDropFiles: FileWithPath[]) => {
+    setJustDropped(true);
+    setTimeout(() => setJustDropped(false), 1000); // Reset after animation
+
     const newFilesPromises = acceptedDropFiles.map(async (file) => {
-      if (files.find(f => f.path === file.path)) {
-        return null; // Skip if already present
+      // Skip if already present in current component's list or already processed by parent
+      if (files.find(f => f.path === file.path) || (file.path && processedFilePaths.includes(file.path))) {
+        return null; 
       }
       const validationRes = await validate(file);
       return Object.assign(file, {
         preview: URL.createObjectURL(file),
         isValid: validationRes.isValid,
         errors: validationRes.errors,
+        processedForUpload: false, // Initialize as not processed
       });
     });
 
     const resolvedNewFiles = (await Promise.all(newFilesPromises)).filter(Boolean) as FileWithPreview[];
+    
+    // Filter out duplicates based on path before setting state
+    setFiles(prevFiles => {
+      const combined = [...prevFiles, ...resolvedNewFiles];
+      return combined.filter((f, i, self) => i === self.findIndex(t => t.path === f.path));
+    });
 
-    setFiles(prevFiles => [...prevFiles, ...resolvedNewFiles].filter((f, i, self) => i === self.findIndex(t => t.path === f.path)));
-  }, [validate, files]);
+  }, [validate, files, processedFilePaths]);
 
+  // Effect to trigger upload for newly validated files
+  useEffect(() => {
+    const readyFiles = files.filter(
+      (file) => file.isValid === true && !file.processedForUpload
+    );
+
+    if (readyFiles.length > 0) {
+      onFilesReadyForUpload(readyFiles);
+      // Mark these files as processed to avoid re-triggering
+      setFiles((prevFiles) =>
+        prevFiles.map((file) =>
+          readyFiles.some(rf => rf.path === file.path)
+            ? { ...file, processedForUpload: true }
+            : file
+        )
+      );
+    }
+  }, [files, onFilesReadyForUpload]);
+  
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
     accept: SUPPORTED_EXTENSIONS.reduce((acc, ext) => {
@@ -42,7 +88,11 @@ const FileValidator: React.FC = () => {
         return acc;
     }, {} as Record<string, string[]>),
     maxSize: MAX_FILE_SIZE,
-  });
+    multiple: true,
+    onDragEnter: () => {},
+    onDragOver: () => {},
+    onDragLeave: () => {},
+  } as DropzoneOptions);
 
   const removeFile = (filePath?: string) => {
     if (!filePath) return;
@@ -54,22 +104,59 @@ const FileValidator: React.FC = () => {
   };
 
   return (
-    <div className="p-4 border rounded-lg shadow-md bg-white w-full max-w-2xl mx-auto">
+    <div className={`p-4 border rounded-lg shadow-md bg-white w-full max-w-2xl mx-auto ${customClasses.root || ''}`}>
       <div
         {...getRootProps()}
-        className={`p-10 border-2 border-dashed rounded-md cursor-pointer text-center transition-colors
-          ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
+        className={`p-10 border-2 border-dashed rounded-md cursor-pointer text-center transition-all duration-300
+          ${isDragActive ? 'border-primary/50 bg-primary/5 scale-[1.02] shadow-lg ring-2 ring-primary/20' : ''}
+          ${justDropped ? 'animate-success-flash' : 'border-gray-300 hover:border-gray-400'}
+          ${customClasses.dropzone || ''}
         `}
+        data-dragover={isDragActive}
       >
-        <input {...getInputProps()} />
-        {isDragActive ? (
-          <p className="text-blue-600 text-lg">Drop the files here ...</p>
-        ) : (
-          <p className="text-gray-600 text-lg">Drag 'n' drop files here, or click to select files</p>
-        )}
-        <p className="text-xs text-gray-500 mt-2">
-          Supported types: {SUPPORTED_EXTENSIONS.join(', ')} (Max size: {MAX_FILE_SIZE / (1024 * 1024)}MB)
-        </p>
+        <input {...(getInputProps() as InputHTMLAttributes<HTMLInputElement>)} type="file" />
+        <div className="flex flex-col items-center gap-2">
+          <Upload 
+            className={`w-12 h-12 transition-all duration-300 ${
+              isDragActive ? 'text-primary animate-bounce' : 
+              justDropped ? 'text-green-500 scale-110' : 
+              'text-gray-400'
+            }`}
+          />
+          {isDragActive ? (
+            <p className="text-primary text-lg font-medium">Drop your files here ...</p>
+          ) : justDropped ? (
+            <p className="text-green-600 text-lg font-medium">Files ready for upload! ✨</p>
+          ) : (
+            <p className="text-gray-600 text-lg">Drag & drop files here, or click to select</p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+          <span className="text-xs text-gray-500">Supported types:</span>
+          <div className="flex gap-2">
+            {SUPPORTED_EXTENSIONS.map(ext => {
+              const Icon = ext === '.txt' ? FileText 
+                : ext === '.md' ? FileCode 
+                : FileCheck;
+              return (
+                <div 
+                  key={ext} 
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 cursor-default hover:scale-105 ${
+                    ext === '.txt' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 
+                    ext === '.md' ? 'bg-purple-50 text-purple-600 hover:bg-purple-100' : 
+                    'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                  }`}
+                >
+                  <Icon className="w-3 h-3" />
+                  <span className="text-xs font-medium">{ext}</span>
+                </div>
+              );
+            })}
+          </div>
+          <span className="text-xs text-gray-500 ml-2">
+            Max size: {MAX_FILE_SIZE / (1024 * 1024)}MB
+          </span>
+        </div>
       </div>
 
       {fileRejections.length > 0 && (
@@ -104,20 +191,50 @@ const FileValidator: React.FC = () => {
                 ${file.isValid === false ? 'border-red-500 bg-red-50' : ''}
               `}
             >
-              <div className="flex-grow">
-                <p className="font-medium text-gray-800">{(file as FileWithPath).name || 'Unnamed file'}</p>
-                <p className="text-xs text-gray-500">
-                  {(file.size / (1024 * 1024)).toFixed(2)} MB
-                  {file.isValid === undefined && isValidating && ' - Validating...'}
-                </p>
-                {file.isValid === false && file.errors && (
-                  <ul className="list-disc list-inside text-xs text-red-600 mt-1">
-                    {file.errors.map((err: string, i: number) => <li key={i}>{err}</li>)}
-                  </ul>
-                )}
-                 {file.isValid === true && (
-                   <p className="text-xs text-green-600 mt-1">✔️ File is valid and ready for upload.</p>
-                 )}
+              <div className="flex-grow flex gap-3">
+                {/* File type icon */}
+                {(() => {
+                  const ext = (file as FileWithPath).name?.split('.').pop()?.toLowerCase();
+                  const Icon = ext === 'txt' ? FileText 
+                    : ext === 'md' ? FileCode 
+                    : FileCheck;
+                  return (
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                      ext === 'txt' ? 'bg-blue-50' : 
+                      ext === 'md' ? 'bg-purple-50' :
+                      'bg-emerald-50'
+                    }`}>
+                      <Icon className={`w-5 h-5 ${
+                        ext === 'txt' ? 'text-blue-600' :
+                        ext === 'md' ? 'text-purple-600' :
+                        'text-emerald-600'
+                      }`} />
+                    </div>
+                  );
+                })()}
+                
+                {/* File info */}
+                <div>
+                  <p className="font-medium text-gray-800">{(file as FileWithPath).name || 'Unnamed file'}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-500">
+                      {(file.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                    {file.isValid === undefined && isValidating && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Validating...
+                      </span>
+                    )}
+                  </div>
+                  {file.isValid === false && file.errors && (
+                    <ul className="list-disc list-inside text-xs text-red-600 mt-1">
+                      {file.errors.map((err: string, i: number) => <li key={i}>{err}</li>)}
+                    </ul>
+                  )}
+                  {file.isValid === true && (
+                    <p className="text-xs text-green-600 mt-1">✔️ File is valid and ready for upload.</p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => removeFile(file.path)}
@@ -129,15 +246,8 @@ const FileValidator: React.FC = () => {
           ))}
         </div>
       )}
-       {isValidating && files.every(f => f.isValid === undefined) && ( // Show general validating message if all files are currently being processed
+       {isValidating && files.every(f => f.isValid === undefined) && (
          <p className="mt-4 text-sm text-yellow-600">Validating files...</p>
-       )}
-       {files.length > 0 && files.every(f => f.isValid === true) && (
-        <div className="mt-6 text-center">
-            <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                Upload Valid Files ({files.filter(f => f.isValid === true).length})
-            </button>
-        </div>
        )}
     </div>
   );
