@@ -80,13 +80,18 @@ const FileValidator: React.FC<FileValidatorProps> = ({
   
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
-    accept: SUPPORTED_EXTENSIONS.reduce((acc, ext) => {
-        if (ext === '.txt') acc['text/plain'] = [ext];
-        else if (ext === '.md') acc['text/markdown'] = [ext];
-        else if (ext === '.pdf') acc['application/pdf'] = [ext];
-        else if (ext === '.docx') acc['application/vnd.openxmlformats-officedocument.wordprocessingml.document'] = [ext];
-        return acc;
-    }, {} as Record<string, string[]>),
+    accept: {
+      'text/plain': ['.txt'],
+      'text/markdown': ['.md'],
+      'text/*': ['.txt', '.md'], // Fallback for text files
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      // Add extensions directly for better browser compatibility
+      '.txt': [], 
+      '.md': [],
+      '.pdf': [],
+      '.docx': []
+    },
     maxSize: MAX_FILE_SIZE,
     multiple: true,
     onDragEnter: () => {},

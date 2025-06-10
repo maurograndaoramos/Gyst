@@ -7,7 +7,7 @@ import json
 import math
 from typing import List, Dict, Any, Optional, Tuple, Set
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 from threading import Lock
@@ -277,7 +277,7 @@ class ConversationMemoryManager:
         state.message_count += 1
         if message.role == MessageRole.USER:
             state.turn_count += 1
-        state.last_activity = datetime.utcnow()
+        state.last_activity = datetime.now(UTC)
         
         # Add to context window
         state.context_window.active_messages.append(message.id)
@@ -330,7 +330,7 @@ class ConversationMemoryManager:
             
             if similar_topic and similar_topic.confidence_score > self.config.topic_similarity_threshold:
                 # Update existing topic
-                similar_topic.last_mention = datetime.utcnow()
+                similar_topic.last_mention = datetime.now(UTC)
                 similar_topic.message_count += 1
                 similar_topic.keywords.extend([k for k in keywords if k not in similar_topic.keywords])
                 await self._save_topic(conversation_id, similar_topic)
@@ -481,7 +481,7 @@ class ConversationMemoryManager:
         
         # Update token count
         state.context_window.current_token_count -= removed_tokens
-        state.context_window.last_pruned = datetime.utcnow()
+        state.context_window.last_pruned = datetime.now(UTC)
         state.context_window.compression_count += 1
         
         await self._save_conversation_state(state)
@@ -491,7 +491,7 @@ class ConversationMemoryManager:
     async def _apply_relevance_decay(self, conversation_id: str, decay_type: DecayType = DecayType.COMBINED) -> None:
         """Apply relevance decay to conversation messages."""
         message_relevances = await self._get_message_relevances_for_conversation(conversation_id)
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         
         for relevance in message_relevances:
             original_relevance = relevance.current_relevance
@@ -638,7 +638,7 @@ class ConversationMemoryManager:
                     state.memory_config.model_dump_json(),
                     state.is_archived,
                     state.archive_reason,
-                    datetime.utcnow().isoformat()
+                    datetime.now(UTC).isoformat()
                 ))
                 conn.commit()
         
@@ -965,7 +965,7 @@ class ConversationMemoryManager:
                 """, (
                     total_messages,
                     avg_processing_time,
-                    datetime.utcnow().isoformat(),
+                    datetime.now(UTC).isoformat(),
                     conversation_id
                 ))
                 
@@ -979,7 +979,7 @@ class ConversationMemoryManager:
                         conversation_id,
                         total_messages,
                         avg_processing_time,
-                        datetime.utcnow().isoformat()
+                        datetime.now(UTC).isoformat()
                     ))
                 
                 conn.commit()
