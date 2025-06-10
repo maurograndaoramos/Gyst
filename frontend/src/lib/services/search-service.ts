@@ -245,9 +245,18 @@ export class SearchService {
         // If content is not in database but filePath exists, read from file
         if (!content && doc.filePath) {
           try {
-            const absolutePath = path.isAbsolute(doc.filePath) 
-              ? doc.filePath 
-              : path.join(process.cwd(), doc.filePath)
+            let absolutePath: string
+            
+            if (path.isAbsolute(doc.filePath)) {
+              absolutePath = doc.filePath
+            } else {
+              // Handle relative paths - ensure they point to the uploads directory
+              if (doc.filePath.startsWith('uploads/')) {
+                absolutePath = path.join(process.cwd(), 'frontend', doc.filePath)
+              } else {
+                absolutePath = path.join(process.cwd(), 'frontend', 'uploads', doc.filePath)
+              }
+            }
             
             content = await fs.readFile(absolutePath, 'utf-8')
             console.log(`Successfully read file content for ${doc.originalFilename}, length: ${content.length}`)

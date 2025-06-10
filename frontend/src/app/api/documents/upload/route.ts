@@ -56,7 +56,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     // Create temporary file for validation
     const timestamp = Date.now()
     const random = Math.random().toString(36).substring(2, 15)
-    const tempFileName = `temp_${timestamp}_${random}.${file.name.split('.').pop()}`
+    const fileExtension = file.name ? file.name.split('.').pop() : 'tmp'
+    const tempFileName = `temp_${timestamp}_${random}.${fileExtension}`
     const tempDir = process.env.TEMP_DIR || './uploads/temp'
     await fileStorage.ensureDirectoryExists(tempDir)
     tempFilePath = `${tempDir}/${tempFileName}`
