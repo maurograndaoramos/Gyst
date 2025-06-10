@@ -7,6 +7,7 @@ const protectedRoutes = ["/dashboard", "/profile", "/admin"]
 const authRoutes = ["/login", "/register"]
 const publicRoutes = ["/", "/landing"]
 const organizationSetupRoute = "/auth/setup-organization"
+const organizationCheckRoute = "/auth/organization-check"
 
 // Function to check if a path matches the organization dashboard pattern
 const isOrgDashboardRoute = (pathname: string): boolean => {
@@ -50,8 +51,8 @@ export async function middleware(request: NextRequest) {
 
   // If user is authenticated, check if they need organization setup
   if (session && session.user) {
-    // Allow access to organization setup page
-    if (pathname === organizationSetupRoute) {
+    // Allow access to organization setup and check pages
+    if (pathname === organizationSetupRoute || pathname === organizationCheckRoute) {
       return NextResponse.next()
     }
 
