@@ -63,7 +63,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     tempFilePath = `${tempDir}/${tempFileName}`
 
     // Write file to temp location
-    const buffer = Buffer.from(await file.arrayBuffer())
+    const bytes = await file.bytes()
+    const buffer = Buffer.from(bytes)
     await fs.writeFile(tempFilePath, buffer)
 
     // Create uploadedFile object for compatibility
@@ -110,16 +111,33 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     // Clear temp file path since file has been moved
     tempFilePath = undefined
 
-    // 7. Create database record
+    // 7. Create database record with content for text-based files
     const sanitizedOriginalName = sanitizeFilename(uploadedFile.originalFilename || 'unknown')
     
+    // Read content for text-based files
+    let fileContent: string | null = null
+    const mimeType = validation.detectedMimeType || uploadedFile.mimetype
+    if (mimeType && (
+      mimeType.startsWith('text/') ||
+      mimeType === 'application/json' ||
+      mimeType === 'text/markdown'
+    )) {
+      try {
+        fileContent = buffer.toString('utf-8')
+        console.log(`Stored content for ${sanitizedOriginalName}, length: ${fileContent.length}`)
+      } catch (error) {
+        console.warn(`Failed to read content for ${sanitizedOriginalName}:`, error)
+      }
+    }
+
     const [document] = await db.insert(documents).values({
       organizationId: context.organizationId,
       title: sanitizedOriginalName,
       originalFilename: sanitizedOriginalName,
       filePath: filePath,
-      mimeType: validation.detectedMimeType || uploadedFile.mimetype,
+      mimeType: mimeType,
       size: uploadedFile.size,
+      content: fileContent,
       createdBy: context.userId,
       projectId: projectId || null
     }).returning()

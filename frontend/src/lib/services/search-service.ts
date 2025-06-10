@@ -252,9 +252,9 @@ export class SearchService {
             } else {
               // Handle relative paths - ensure they point to the uploads directory
               if (doc.filePath.startsWith('uploads/')) {
-                absolutePath = path.join(process.cwd(), 'frontend', doc.filePath)
+                absolutePath = path.join(process.cwd(), doc.filePath)
               } else {
-                absolutePath = path.join(process.cwd(), 'frontend', 'uploads', doc.filePath)
+                absolutePath = path.join(process.cwd(), 'uploads', doc.filePath)
               }
             }
             

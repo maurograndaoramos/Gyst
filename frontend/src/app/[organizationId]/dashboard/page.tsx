@@ -2,7 +2,7 @@
 import * as React from "react"
 import { SmartFileRenderer } from "@/components/smart-file-renderer";
 import { AppSidebar } from "@/components/app-sidebar"
-import FileValidator, { type FileWithPreview } from "@/components/FileValidator"; 
+import FileValidator, { type FileWithPreview } from "@/components/FileValidator";
 import UploadProgressModal, { type FileProgress } from "@/components/UploadProgressModal";
 import { useAuth } from "@/hooks/use-auth";
 import { useParams } from "next/navigation";
@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation"
 import { ChevronRight, File } from "lucide-react"
 import ChatInterface from "@/components/chatInterface";
 import { LoadingSpinner } from "@/components/auth/loading-spinner"
+import useFileValidation from "@/hooks/useFileValidation";
 
 import type { FileData } from "@/types/file";
 
@@ -343,11 +344,12 @@ export default function Page() {
     if (!fileToRetry?.originalFile) return;
 
     // Create a new FileWithPreview from the original file
-    const fileWithPreview = Object.assign(fileToRetry.originalFile, {
+    const fileWithPreview: FileWithPreview = {
+      ...fileToRetry.originalFile,
       preview: URL.createObjectURL(fileToRetry.originalFile),
       isValid: true,
       errors: []
-    }) as FileWithPreview;
+    };
 
     // Create a new upload entry and start upload
     handleFilesValidated([fileWithPreview]);
