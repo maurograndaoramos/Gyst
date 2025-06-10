@@ -67,11 +67,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // On initial sign in, add user data to token
       if (user && user.id) {
         token.userId = user.id
-        token.role = (user as CustomUser).role || 'user'
+        token.role = (user as CustomUser).role || 'admin'  // Default to admin
         token.organizationId = (user as CustomUser).organizationId || ''
         
         console.log('JWT initial sign in:', {
           userId: token.userId,
+          role: token.role,
           organizationId: token.organizationId
         });
       }
@@ -124,6 +125,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = String(token.userId)
         session.user.role = (token.role as UserRole) || 'user'
         session.user.organizationId = (token.organizationId as string) ?? ''
+        
+        console.log('Session callback: Setting session data:', {
+          userId: session.user.id,
+          role: session.user.role,
+          organizationId: session.user.organizationId
+        })
       }
       return session
     },
@@ -133,6 +140,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (url.startsWith("/")) return `${baseUrl}${url}`
       // Allows callback URLs on the same origin
       else if (new URL(url).origin === baseUrl) return url
+      
+      // Default redirect to homepage - homepage will handle organization checking
       return baseUrl
     },
 
@@ -167,6 +176,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   events: {
+    async createUser({ user }) {
+      // Set default role for new users created via OAuth
+      if (user.id) {
+        try {
+          const { db } = await import("@/lib/db")
+          const { users } = await import("@/lib/db/schema")
+          const { eq } = await import("drizzle-orm")
+          
+          await db.update(users)
+            .set({ role: 'admin' })
+            .where(eq(users.id, user.id));
+            
+          console.log('New user created with admin role:', user.email);
+        } catch (error) {
+          console.error('Failed to set role for new user:', error);
+          // Don't throw the error to avoid breaking the sign-in flow
+        }
+      }
+    },
+
     async signIn({ user, account }) {
       console.log("User signed in:", { user: user.email, provider: account?.provider })
     },

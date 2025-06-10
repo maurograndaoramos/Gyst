@@ -1,8 +1,8 @@
 'use client'
 import * as React from "react"
-import { FileDisplay } from "@/components/ui/fileDisplay";
+import { SmartFileRenderer } from "@/components/smart-file-renderer";
 import { AppSidebar } from "@/components/app-sidebar"
-import FileValidator, { type FileWithPreview } from "@/components/FileValidator"; 
+import FileValidator, { type FileWithPreview } from "@/components/FileValidator";
 import UploadProgressModal, { type FileProgress } from "@/components/UploadProgressModal";
 import { useAuth } from "@/hooks/use-auth";
 import { useParams } from "next/navigation";
@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation"
 import { ChevronRight, File } from "lucide-react"
 import ChatInterface from "@/components/chatInterface";
 import { LoadingSpinner } from "@/components/auth/loading-spinner"
+import useFileValidation from "@/hooks/useFileValidation";
 
 import type { FileData } from "@/types/file";
 
@@ -49,6 +50,28 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
   const isAdmin = role === 'admin';
+
+  // Handle quick upload from sidebar
+  const handleQuickUpload = () => {
+    // Create a file input element and trigger it
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.txt,.md,.pdf,.docx';
+    input.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      if (files.length > 0) {
+        const filesWithPreview = files.map(file => ({
+          ...file,
+          preview: URL.createObjectURL(file),
+          isValid: true,
+          errors: []
+        } as FileWithPreview));
+        handleFilesValidated(filesWithPreview);
+      }
+    };
+    input.click();
+  };
 
   const handleFilesReorder = async (reorderedFiles: FileData[]) => {
     if (!isAdmin) return;
@@ -321,11 +344,12 @@ export default function Page() {
     if (!fileToRetry?.originalFile) return;
 
     // Create a new FileWithPreview from the original file
-    const fileWithPreview = Object.assign(fileToRetry.originalFile, {
+    const fileWithPreview: FileWithPreview = {
+      ...fileToRetry.originalFile,
       preview: URL.createObjectURL(fileToRetry.originalFile),
       isValid: true,
       errors: []
-    }) as FileWithPreview;
+    };
 
     // Create a new upload entry and start upload
     handleFilesValidated([fileWithPreview]);
@@ -352,9 +376,11 @@ export default function Page() {
             organizationId={organizationId}
             files={files}
             loading={loading || isReordering}
+            isAdmin={isAdmin}
+            onQuickUpload={handleQuickUpload}
         />
         <SidebarInset>
-          <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between bg-background">
+          <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between bg-background border-b border-border shadow-sm">
             <div className="flex items-center gap-2 min-w-0 flex-1 h-16 px-4 mr-4">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
@@ -417,27 +443,33 @@ export default function Page() {
             >
               {/* Content Layer */}
               <div className={`absolute inset-0 bg-white border-t ${activeTab ? 'z-30' : 'z-20'}`}>
-                {/* Admin Upload Area */}
-                {isAdmin && !activeTab && (
-                  <div className="w-full h-[calc(100vh-4rem)] flex items-center justify-center z-10">
-                    <FileValidator 
-                      onFilesReadyForUpload={handleFilesValidated}
-                      customClasses={{
-                        root: "bg-transparent shadow-none border-none",
-                        dropzone: "border-2 border-dashed border-gray-300 hover:border-primary transition-colors hover:bg-black/5",
-                      }}
-                    />
-                  </div>
-                )}
                 {activeTab ? (
                   <div className="w-full h-full">
-                    <div className="p-4">
-                      <FileDisplay content={activeTab.file.content || ''} />
-                    </div>
+                    <SmartFileRenderer file={activeTab.file} />
                   </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-muted-foreground">Select a file to view its content</span>
+                  <div className="w-full h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-8 space-y-8">
+                    <div className="text-center space-y-4">
+                      <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                        <File className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No file selected</h3>
+                        <p className="text-muted-foreground">Select a file from the sidebar to view its content</p>
+                      </div>
+                    </div>
+                    
+                    {isAdmin && (
+                      <div className="w-full max-w-md">
+                        <FileValidator 
+                          onFilesReadyForUpload={handleFilesValidated}
+                          customClasses={{
+                            root: "bg-transparent shadow-none border-none",
+                            dropzone: "border-2 border-dashed border-gray-300 hover:border-primary transition-colors hover:bg-gray-50 p-6 rounded-lg",
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

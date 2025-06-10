@@ -83,14 +83,9 @@ const FileValidator: React.FC<FileValidatorProps> = ({
     accept: {
       'text/plain': ['.txt'],
       'text/markdown': ['.md'],
-      'text/*': ['.txt', '.md'], // Fallback for text files
+      'text/x-markdown': ['.md'], // Alternative markdown MIME type
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      // Add extensions directly for better browser compatibility
-      '.txt': [], 
-      '.md': [],
-      '.pdf': [],
-      '.docx': []
     },
     maxSize: MAX_FILE_SIZE,
     multiple: true,

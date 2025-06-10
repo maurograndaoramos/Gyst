@@ -8,11 +8,8 @@ import { Flag, Brain, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from '@/hooks/use-auth'
 import { LoadingSpinner } from '@/components/auth/loading-spinner'
-import { UserHeader } from '@/components/user-header'
-import { UploadSection } from '@/components/upload-section'
-import LandingPage from './landing/page'
-import { motion, useScroll, useTransform, useInView } from "framer-motion"
-import { useRef, useEffect, useState } from "react"
+import { motion, useScroll, useTransform } from "framer-motion"
+import { useEffect, useState } from "react"
 import { AnimatedSection } from '@/components/animated-section'
 import { AnimatedFeatureCard } from '@/components/animated-feature-card'
 
@@ -21,7 +18,7 @@ export default function Component() {
   const { scrollYProgress } = useScroll()
   const [isVisible, setIsVisible] = useState(false)
 
-  const { isLoading, isAuthenticated, role } = useAuth()
+  const { isLoading, isAuthenticated, role, user } = useAuth()
 
   // Smooth reveal on page load
   useEffect(() => {
@@ -29,24 +26,25 @@ export default function Component() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Redirect authenticated users with organizations to their dashboard
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user?.organizationId) {
+      console.log('Homepage: Redirecting authenticated user to dashboard:', user.organizationId)
+      router.replace(`/${user.organizationId}/dashboard`)
+    }
+  }, [isLoading, isAuthenticated, user, router])
+
   // Parallax transforms
   const heroY = useTransform(scrollYProgress, [0, 1], [0, -50])
   const demoY = useTransform(scrollYProgress, [0, 1], [0, -100])
 
-  // if (isLoading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center">
-  //       <LoadingSpinner />
-  //     </div>
-  //   )
-  // }
-
-  // // Show landing page for unauthenticated users
-  // if (!isAuthenticated) {
-  //   return <LandingPage />
-  // }
-
-
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
 
   return (
     <motion.div 

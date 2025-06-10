@@ -7,8 +7,8 @@ export class FileStorageService {
   private tempDir: string
 
   constructor() {
-    this.uploadDir = process.env.UPLOAD_DIR || './uploads'
-    this.tempDir = process.env.TEMP_DIR || './uploads/temp'
+    this.uploadDir = process.env.UPLOAD_DIR || 'uploads'
+    this.tempDir = process.env.TEMP_DIR || 'uploads/temp'
   }
 
   async ensureDirectoryExists(dirPath: string): Promise<void> {
@@ -68,6 +68,10 @@ export class FileStorageService {
   }
 
   getAbsolutePath(relativePath: string): string {
-    return path.join(this.uploadDir, relativePath)
+    // Ensure we get the absolute path from the project root
+    if (path.isAbsolute(relativePath)) {
+      return relativePath
+    }
+    return path.join(process.cwd(), this.uploadDir, relativePath)
   }
 }
