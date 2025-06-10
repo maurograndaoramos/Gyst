@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
 import { documents } from '@/lib/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
+import fs from 'fs/promises'
+import path from 'path'
 
 export interface SearchParams {
   query?: string
@@ -235,11 +237,36 @@ export class SearchService {
       .where(eq(documents.organizationId, organizationId))
       .orderBy(desc(documents.createdAt))
 
-    return docs.map(doc => ({
-      ...doc,
-      createdAt: doc.createdAt ? new Date(doc.createdAt) : null,
-      updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : null
-    }))
+    // Read file content from filesystem for each document
+    const docsWithContent = await Promise.all(
+      docs.map(async (doc) => {
+        let content: string | null = doc.content
+
+        // If content is not in database but filePath exists, read from file
+        if (!content && doc.filePath) {
+          try {
+            const absolutePath = path.isAbsolute(doc.filePath) 
+              ? doc.filePath 
+              : path.join(process.cwd(), doc.filePath)
+            
+            content = await fs.readFile(absolutePath, 'utf-8')
+            console.log(`Successfully read file content for ${doc.originalFilename}, length: ${content.length}`)
+          } catch (error) {
+            console.error(`Failed to read file ${doc.filePath}:`, error)
+            content = null
+          }
+        }
+
+        return {
+          ...doc,
+          content,
+          createdAt: doc.createdAt ? new Date(doc.createdAt) : null,
+          updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : null
+        }
+      })
+    )
+
+    return docsWithContent
   }
 
   /**

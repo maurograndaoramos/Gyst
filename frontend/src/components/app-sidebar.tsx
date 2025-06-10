@@ -1,5 +1,5 @@
 import * as React from "react"
-import { File, Search, X, Tag } from "lucide-react"
+import { File, Search, X, Tag, Upload } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -70,9 +70,11 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onFileSelect: (file: FileData) => void
   onFilesReorder?: (files: FileData[]) => void
   loading: boolean
+  isAdmin?: boolean
+  onQuickUpload?: () => void
 }
 
-export function AppSidebar({ organizationId, files, onFileSelect, onFilesReorder, loading, ...props }: AppSidebarProps) {
+export function AppSidebar({ organizationId, files, onFileSelect, onFilesReorder, loading, isAdmin = false, onQuickUpload, ...props }: AppSidebarProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [tagSearchQuery, setTagSearchQuery] = React.useState("");
   const [selectedTags, setSelectedTags] = React.useState<number[]>([]);
@@ -339,7 +341,21 @@ export function AppSidebar({ organizationId, files, onFileSelect, onFilesReorder
 
         {/* Files Section */}
         <SidebarGroup>
-          <SidebarGroupLabel>Files</SidebarGroupLabel>
+          <SidebarGroupLabel className="flex items-center justify-between">
+            <span>Files</span>
+            {/* Discrete upload button for admins */}
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 hover:bg-gray-200"
+                onClick={onQuickUpload}
+                title="Upload files"
+              >
+                <Upload className="h-3 w-3" />
+              </Button>
+            )}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             {/* File Search Input */}
             <div className="relative px-2 py-2">
