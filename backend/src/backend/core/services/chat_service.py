@@ -5,7 +5,7 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional, AsyncGenerator, Tuple
 from pathlib import Path
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 
 from crewai import Agent, Task, Crew
 from crewai.memory import LongTermMemory
@@ -79,7 +79,7 @@ class ChatService:
         self.active_conversations: Dict[str, ConversationContext] = {}
         
         # Service startup time
-        self.startup_time = datetime.now(UTC)
+        self.startup_time = datetime.now(timezone.utc)
         
         logger.info("Chat service initialized successfully")
     
@@ -249,17 +249,56 @@ class ChatService:
         if '..' in document_path:
             raise ValueError("Directory traversal is not allowed")
         
-        # Construct full path
-        full_path = self.upload_base_dir / document_path
+        # Try multiple possible path combinations for frontend upload structure
+        possible_paths = [
+            # Direct path from backend uploads
+            self.upload_base_dir / document_path,
+            # Frontend uploads structure
+            Path("./frontend/uploads") / document_path,
+            # Alternative frontend structure
+            Path("../frontend/uploads") / document_path,
+            # Current working directory frontend uploads
+            Path().cwd() / "frontend" / "uploads" / document_path
+        ]
         
-        # Check if file exists
-        if not full_path.exists():
-            raise FileNotFoundError(f"Document not found: {document_path}")
+        # Find the first valid path
+        for full_path in possible_paths:
+            try:
+                if full_path.exists() and full_path.is_file():
+                    logger.info(f"Found document at: {full_path}")
+                    return str(full_path.resolve())
+            except Exception as e:
+                logger.debug(f"Path {full_path} invalid: {e}")
+                continue
         
-        if not full_path.is_file():
-            raise ValueError(f"Path is not a file: {document_path}")
+        # If no path found, log available directories for debugging
+        logger.warning(f"Document not found: {document_path}")
+        self._log_available_upload_directories()
         
-        return str(full_path)
+        raise FileNotFoundError(f"Document not found: {document_path}")
+    
+    def _log_available_upload_directories(self):
+        """Log available upload directories for debugging."""
+        try:
+            base_dirs_to_check = [
+                Path("./uploads"),
+                Path("./frontend/uploads"), 
+                Path("../frontend/uploads"),
+                Path().cwd() / "frontend" / "uploads"
+            ]
+            
+            for base_dir in base_dirs_to_check:
+                if base_dir.exists():
+                    logger.info(f"Available upload directory: {base_dir.resolve()}")
+                    # List first level subdirectories
+                    try:
+                        subdirs = [d.name for d in base_dir.iterdir() if d.is_dir()][:5]
+                        if subdirs:
+                            logger.info(f"  Subdirectories: {subdirs}")
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.debug(f"Error logging upload directories: {e}")
     
     def _extract_sources_from_result(self, result: Any, document_paths: List[str]) -> List[DocumentSource]:
         """Extract document sources from crew result."""
@@ -304,7 +343,7 @@ class ChatService:
                     agent_name="AI Assistant",
                     agent_role="Task Processing",
                     thought_process="Successfully processed your request and generated a response.",
-                    timestamp=datetime.now(UTC),
+                    timestamp=datetime.now(timezone.utc),
                     status="completed"
                 )
                 agent_steps = [fallback_step]
@@ -317,7 +356,7 @@ class ChatService:
                 agent_name="AI Assistant",
                 agent_role="General Assistant",
                 thought_process="Processing your request and generating a helpful response.",
-                timestamp=datetime.now(UTC),
+                timestamp=datetime.now(timezone.utc),
                 status="completed"
             )
             agent_steps = [fallback_step]
@@ -474,7 +513,7 @@ class ChatService:
         if conversation_id in self.active_conversations:
             context = self.active_conversations[conversation_id]
             context.message_history.extend(new_messages)
-            context.last_activity = datetime.now(UTC)
+            context.last_activity = datetime.now(timezone.utc)
             context.document_context.extend(document_paths)
         else:
             # Create new conversation context
@@ -482,7 +521,7 @@ class ChatService:
                 conversation_id=conversation_id,
                 message_history=new_messages,
                 document_context=document_paths,
-                last_activity=datetime.now(UTC),
+                last_activity=datetime.now(timezone.utc),
                 metadata={}
             )
     
@@ -708,7 +747,7 @@ class ChatService:
                         'agent_name': 'AI Assistant',
                         'agent_role': 'Processing',
                         'thought_process': line,
-                        'timestamp': datetime.now(UTC) - timedelta(seconds=len(execution_steps) * 2)
+                        'timestamp': datetime.now(timezone.utc) - timedelta(seconds=len(execution_steps) * 2)
                     }
                 elif current_step:
                     # Append to current step
@@ -724,7 +763,7 @@ class ChatService:
                     'agent_name': 'AI Assistant',
                     'agent_role': 'General Assistant',
                     'thought_process': f"Processing your request: {result_str[:200]}...",
-                    'timestamp': datetime.now(UTC)
+                    'timestamp': datetime.now(timezone.utc)
                 })
                 
         except Exception as e:
@@ -734,7 +773,7 @@ class ChatService:
                 'agent_name': 'AI Assistant',
                 'agent_role': 'General Assistant',
                 'thought_process': "Processing your request...",
-                'timestamp': datetime.now(UTC)
+                'timestamp': datetime.now(timezone.utc)
             }]
         
         return execution_steps
@@ -768,7 +807,7 @@ class ChatService:
                             agent_name=agent_name,
                             agent_role=agent_role,
                             thought_process=self._clean_agent_thought_process(thought_process),
-                            timestamp=datetime.now(UTC) - timedelta(seconds=(len(crew_result.tasks_output) - i) * 2),
+                            timestamp=datetime.now(timezone.utc) - timedelta(seconds=(len(crew_result.tasks_output) - i) * 2),
                             status="completed"
                         )
                         agent_steps.append(step)
@@ -784,14 +823,14 @@ class ChatService:
                         agent_name="Document Context Specialist",
                         agent_role="Context Analysis",
                         thought_process="Analyzed available documents and extracted relevant context for the user's query.",
-                    timestamp=datetime.now(UTC) - timedelta(seconds=4),
+                    timestamp=datetime.now(timezone.utc) - timedelta(seconds=4),
                     status="completed"
                     ),
                     AgentStep(
                         agent_name="AI Assistant",
                         agent_role="Response Generation",
                         thought_process="Generated a comprehensive response based on the context analysis and user requirements.",
-                    timestamp=datetime.now(UTC) - timedelta(seconds=2),
+                    timestamp=datetime.now(timezone.utc) - timedelta(seconds=2),
                     status="completed"
                     )
                 ]
@@ -806,7 +845,7 @@ class ChatService:
                     agent_name="AI Assistant",
                     agent_role="Task Processing",
                     thought_process="Successfully processed your request and generated a response.",
-                    timestamp=datetime.now(UTC),
+                    timestamp=datetime.now(timezone.utc),
                     status="completed"
                 )
             ]
@@ -889,7 +928,7 @@ class ChatService:
 
     def get_health_status(self) -> Dict[str, Any]:
         """Get health status of the chat service."""
-        uptime = (datetime.now(UTC) - self.startup_time).total_seconds()
+        uptime = (datetime.now(timezone.utc) - self.startup_time).total_seconds()
         
         return {
             "status": "healthy",
@@ -898,7 +937,7 @@ class ChatService:
             "document_processing_status": "healthy",
             "active_conversations": len(self.active_conversations),
             "uptime_seconds": uptime,
-            "last_check": datetime.now(UTC)
+            "last_check": datetime.now(timezone.utc)
         }
 
 # Global service instance

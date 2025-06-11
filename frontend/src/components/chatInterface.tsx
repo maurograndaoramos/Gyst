@@ -1,12 +1,17 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { Send, AlertCircle, User, Bot, X, ExternalLink, FileText } from 'lucide-react';
 import { useTypingAnimation } from '@/hooks/useTypingAnimation';
 import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/hooks/use-auth';
 import { useParams } from 'next/navigation';
 import { FrontendMessage, DocumentSource } from '@/types/chat';
+import { useMentions } from '@/hooks/useMentions';
+import { AttachedDocument } from '@/types/mentions';
 import RotatingAgentThoughtProcess from './rotating-agent-thought-process';
 import EnhancedFollowUpSuggestions from './enhanced-follow-up-suggestions';
+import DocumentMentionDropup from './DocumentMentionDropup';
+import AttachedDocumentsPreview from './AttachedDocumentsPreview';
+import MessageAttachments from './MessageAttachments';
 
 interface MessageBubbleProps {
   message: FrontendMessage;
@@ -113,6 +118,15 @@ const ChatInterface: React.FC = () => {
     autoInitialize: true
   });
 
+  // Initialize mentions hook
+  const mentions = useMentions({
+    organizationId,
+    maxAttachments: 5,
+    onAttachmentsChange: (attachments) => {
+      // This will be used when sending messages
+    }
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -139,17 +153,100 @@ const ChatInterface: React.FC = () => {
   useEffect(() => {
     adjustTextareaHeight();
   }, [currentInput, adjustTextareaHeight]);
-  
-  const handleSendMessage = async (): Promise<void> => {
-    if (!canSendMessage) return;
-    await sendMessage(currentInput);
+
+  // Calculate cursor position for @ mentions
+  const getCursorPosition = (): { top: number; left: number } | null => {
+    const textarea = textareaRef.current;
+    if (!textarea) return null;
+
+    const rect = textarea.getBoundingClientRect();
+    const textAreaStyle = window.getComputedStyle(textarea);
+    const fontSize = parseInt(textAreaStyle.fontSize);
+    const lineHeight = parseInt(textAreaStyle.lineHeight) || fontSize * 1.2;
+
+    // Rough estimation of cursor position based on text length
+    // For a more precise implementation, you might want to use a library
+    const textBeforeCursor = currentInput.substring(0, textarea.selectionStart);
+    const lines = textBeforeCursor.split('\n');
+    const currentLine = lines.length - 1;
+    const currentColumn = lines[lines.length - 1].length;
+
+    return {
+      left: rect.left + (currentColumn * fontSize * 0.6), // Rough character width
+      top: rect.top + (currentLine * lineHeight)
+    };
   };
-  
+
+  // Enhanced input handling with @ detection
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    const newValue = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    updateInput(newValue);
+
+    // Check for @ mentions
+    const textBeforeCursor = newValue.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      // Check if there's no space after @ (indicating an active mention)
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        const position = getCursorPosition();
+        if (position) {
+          mentions.openMentions(position, textAfterAt);
+        }
+      } else {
+        mentions.closeMentions();
+      }
+    } else {
+      mentions.closeMentions();
+    }
+  };
+
+  // Enhanced keyboard handling for mentions
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (e.key === 'Enter' && !e.shiftKey && canSendMessage) {
+    if (mentions.isOpen) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          mentions.navigateSelection('down');
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          mentions.navigateSelection('up');
+          break;
+        case 'Enter':
+          e.preventDefault();
+          mentions.selectMention();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          mentions.closeMentions();
+          break;
+        default:
+          // Let other keys pass through for query update
+          break;
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey && canSendMessage) {
       e.preventDefault();
       void handleSendMessage();
     }
+  };
+  
+  // Enhanced send message with attachments
+  const handleSendMessage = async (): Promise<void> => {
+    if (!canSendMessage) return;
+    
+    // Prepare message with attachments
+    const messageWithAttachments = currentInput;
+    const attachedDocuments = mentions.attachedDocuments;
+    
+    // Send message with attachments to backend
+    await sendMessage(messageWithAttachments, attachedDocuments);
+    
+    // Clear attachments after sending
+    mentions.clearAttachments();
   };
   
   const formatTimestamp = (timestamp: Date): string => {
@@ -186,10 +283,6 @@ const ChatInterface: React.FC = () => {
   // Add display name for TypingText component
   TypingText.displayName = 'TypingText';
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
-    updateInput(e.target.value);
-  };
-  
   const handleErrorDismiss = (): void => {
     clearError();
   };
@@ -202,7 +295,7 @@ const ChatInterface: React.FC = () => {
     }, 0);
   };
   
-  // Message bubble component with agent process visualization
+  // Message bubble component with agent process visualization and attachments
   const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onTypingComplete }) => (
     <div className={`mb-4 ${message.sender === 'user' ? 'flex justify-end' : 'block'}`}>
       {/* Show agent thought process for AI messages */}
@@ -254,16 +347,23 @@ const ChatInterface: React.FC = () => {
               </div>
             ) : message.text ? (
               <div>
+                {/* Show attachments for user messages */}
+                {message.sender === 'user' && message.attachments && message.attachments.length > 0 && (
+                  <MessageAttachments attachments={message.attachments} />
+                )}
+                
                 <div 
                   dangerouslySetInnerHTML={{ 
                     __html: renderMarkdown(message.text) 
                   }}
                   className="text-sm leading-relaxed"
                 />
+                
                 {/* Show sources for AI messages */}
                 {message.sender === 'ai' && message.sources && (
                   <SourceCitations sources={message.sources} />
                 )}
+                
                 {/* Show follow-up suggestions for AI messages */}
                 {message.sender === 'ai' && message.followUpSuggestions && (
                   <EnhancedFollowUpSuggestions 
@@ -330,39 +430,64 @@ const ChatInterface: React.FC = () => {
         {messages.length <= 1 && (
           <p className="text-center text-2xl font-bold mb-8">How can I help?</p>
         )}
+        
         <div className="relative w-full">
-          <textarea
-            ref={textareaRef}
-            value={currentInput}
-            onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
-            className="shadow-lg w-full pr-12 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent min-h-[50px]"
-            disabled={isLoading || isTyping}
-            aria-label="Type your message"
-            rows={1}
-            style={{ height: 'auto', minHeight: '50px' }}
+          {/* Attached Documents Preview */}
+          <AttachedDocumentsPreview
+            attachments={mentions.attachedDocuments}
+            onRemove={mentions.removeAttachment}
+            maxAttachments={mentions.maxAttachments}
           />
-          {(isLoading || isTyping) ? (
-            <button
-              onClick={cancelRequest}
-              className="absolute right-2 bottom-2 p-2 text-gray-500 hover:text-red-500 transition-colors hover:bg-red-50 rounded-full"
-              type="button"
-              aria-label="Cancel AI response"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          ) : (
-            <button
-              onClick={() => void handleSendMessage()}
-              disabled={!canSendMessage}
-              className="absolute right-2 bottom-2 p-2 text-gray-500 hover:text-gray-700 transition-colors hover:bg-gray-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
-              aria-label="Send message"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          )}
+          
+          {/* Text Input */}
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={currentInput}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyPress}
+              placeholder="Type your message... Use @ to mention documents"
+              className="shadow-lg w-full pr-12 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent min-h-[50px]"
+              disabled={isLoading || isTyping}
+              aria-label="Type your message"
+              rows={1}
+              style={{ height: 'auto', minHeight: '50px' }}
+            />
+            
+            {/* Send/Cancel Button */}
+            {(isLoading || isTyping) ? (
+              <button
+                onClick={cancelRequest}
+                className="absolute right-2 bottom-2 p-2 text-gray-500 hover:text-red-500 transition-colors hover:bg-red-50 rounded-full"
+                type="button"
+                aria-label="Cancel AI response"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                onClick={() => void handleSendMessage()}
+                disabled={!canSendMessage}
+                className="absolute right-2 bottom-2 p-2 text-gray-500 hover:text-gray-700 transition-colors hover:bg-gray-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                aria-label="Send message"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          
+          {/* Document Mention Dropup */}
+          <DocumentMentionDropup
+            isOpen={mentions.isOpen}
+            position={mentions.position}
+            mentions={mentions.getAllMentions()}
+            selectedIndex={mentions.selectedIndex}
+            isLoading={mentions.isLoading}
+            query={mentions.query}
+            onSelect={mentions.selectMention}
+            onClose={mentions.closeMentions}
+          />
         </div>
       </div>
     </div>
