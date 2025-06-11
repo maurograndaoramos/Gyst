@@ -42,8 +42,9 @@ export class DocumentAnalysisService {
         throw new Error('Document file path not found');
       }
       
-      // Backend expects path relative to working directory including uploads/ prefix
-      const relativePath = `uploads/${metadata.filePath}`;
+      // Backend expects path relative to the uploads directory (no uploads/ prefix needed)
+      // since backend now points directly to frontend/uploads directory
+      const relativePath = metadata.filePath;
 
       // 3. Call Python service for analysis
       try {
@@ -54,8 +55,8 @@ export class DocumentAnalysisService {
           },
           body: JSON.stringify({
             document_path: relativePath,
-            max_tags: 10,
-            generate_summary: true,
+            max_tags: 3,
+            generate_summary: false,
           }),
         });
 
