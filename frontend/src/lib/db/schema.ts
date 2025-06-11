@@ -142,6 +142,9 @@ export const documents = sqliteTable("document", {
   originalFilename: text("originalFilename"),
   mimeType: text("mimeType"),
   size: integer("size"),
+  summary: text("summary"),
+  analysisStatus: text("analysisStatus").$type<"pending" | "analyzing" | "completed" | "failed">().default("pending"),
+  analysisError: text("analysisError"),
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
@@ -149,7 +152,9 @@ export const documents = sqliteTable("document", {
   createdBy: text("createdBy")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-})
+}, (table) => ({
+  analysisStatusIdx: index("idx_documents_analysis_status").on(table.analysisStatus),
+}))
 
 export const auditLogs = sqliteTable("audit_logs", {
   id: text("id")

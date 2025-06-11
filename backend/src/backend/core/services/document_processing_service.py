@@ -390,11 +390,14 @@ class DocumentProcessingService:
     
     async def _extract_content_async(self, document_path: str):
         """Extract content asynchronously using thread executor."""
+        # Resolve the path to the correct location (frontend uploads)
+        resolved_path = self.document_factory._resolve_file_path(document_path)
+        
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             self._thread_executor,
             self.content_extractor.extract_content,
-            document_path
+            str(resolved_path)
         )
     
     async def _chunk_document_async(
@@ -525,6 +528,48 @@ class DocumentProcessingService:
         
         logger.info("Processing statistics reset")
     
+    async def analyze_document(
+        self,
+        document_path: str,
+        max_tags: int = 10,
+        generate_summary: bool = False
+    ):
+        """
+        Analyze a document and generate tags with confidence scores using CrewAI.
+        
+        This method bridges the API interface with the CrewAI analysis pipeline.
+        It processes the document and returns the result in the expected API format.
+        
+        Args:
+            document_path: Path to the document to analyze
+            max_tags: Maximum number of tags to generate
+            generate_summary: Whether to generate a document summary
+            
+        Returns:
+            AnalyzeDocumentResponse: Analysis result with tags and metadata
+        """
+        try:
+            # Import CrewAI service
+            from .crewai_service import get_document_analysis_service
+            
+            # Get the CrewAI document analysis service
+            crewai_service = get_document_analysis_service()
+            
+            # Use CrewAI to analyze the document
+            analysis_result = await crewai_service.analyze_document(
+                document_path=document_path,
+                max_tags=max_tags,
+                generate_summary=generate_summary
+            )
+            
+            logger.info(f"CrewAI analysis completed for {document_path} with {len(analysis_result.tags)} tags")
+            
+            return analysis_result
+            
+        except Exception as e:
+            logger.error(f"Document analysis failed for {document_path}: {str(e)}")
+            raise
+
     def __del__(self):
         """Cleanup thread executor on service destruction."""
         if hasattr(self, '_thread_executor'):

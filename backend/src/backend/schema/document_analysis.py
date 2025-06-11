@@ -5,6 +5,14 @@ import uuid
 from datetime import datetime
 import os
 
+class BaseResponse(BaseModel):
+    """Base response model with proper datetime serialization."""
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
 
 class TagModel(BaseModel):
     """Model representing a single tag with metadata."""
@@ -52,7 +60,7 @@ class AnalyzeDocumentRequest(BaseModel):
         return v
 
 
-class AnalyzeDocumentResponse(BaseModel):
+class AnalyzeDocumentResponse(BaseResponse):
     """Response model for successful document analysis."""
     request_id: str = Field(..., description="Unique identifier for this analysis request")
     document_path: str = Field(..., description="Path of the analyzed document")
@@ -63,7 +71,7 @@ class AnalyzeDocumentResponse(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when analysis completed")
 
 
-class AnalyzeDocumentErrorResponse(BaseModel):
+class AnalyzeDocumentErrorResponse(BaseResponse):
     """Response model for analysis errors."""
     request_id: str = Field(..., description="Unique identifier for this analysis request")
     error: str = Field(..., description="Error type")
@@ -72,7 +80,7 @@ class AnalyzeDocumentErrorResponse(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when error occurred")
 
 
-class ProcessingStatusResponse(BaseModel):
+class ProcessingStatusResponse(BaseResponse):
     """Response model for processing status checks."""
     request_id: str = Field(..., description="Unique identifier for this analysis request")
     status: str = Field(..., description="Current processing status")

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { documents } from '@/lib/db/schema'
+import { documents, tags, documentTags } from '@/lib/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import fs from 'fs/promises'
 import path from 'path'
@@ -19,7 +19,10 @@ export interface SearchResult {
   originalFilename: string | null
   filePath: string | null
   content: string | null
+  summary: string | null
   organizationId: string
+  analysisStatus: string | null
+  size: number | null
   createdAt: Date | null
   updatedAt: Date | null
   relevanceScore?: number
@@ -27,6 +30,10 @@ export interface SearchResult {
     filename?: string
     content?: string
   }
+  tags?: Array<{
+    name: string
+    confidence: number
+  }>
 }
 
 export interface SearchResponse {
@@ -237,6 +244,30 @@ export class SearchService {
       .where(eq(documents.organizationId, organizationId))
       .orderBy(desc(documents.createdAt))
 
+    // Get tags for all documents in a single query
+    const allDocumentTags = await db
+      .select({
+        documentId: documentTags.documentId,
+        tagName: tags.name,
+        confidence: documentTags.confidence,
+      })
+      .from(documentTags)
+      .innerJoin(tags, eq(documentTags.tagId, tags.id))
+      .innerJoin(documents, eq(documentTags.documentId, documents.id))
+      .where(eq(documents.organizationId, organizationId))
+
+    // Group tags by document ID
+    const tagsByDocument = allDocumentTags.reduce((acc, tagData) => {
+      if (!acc[tagData.documentId]) {
+        acc[tagData.documentId] = []
+      }
+      acc[tagData.documentId].push({
+        name: tagData.tagName,
+        confidence: tagData.confidence,
+      })
+      return acc
+    }, {} as Record<string, Array<{ name: string; confidence: number }>>)
+
     // Read file content from filesystem for each document
     const docsWithContent = await Promise.all(
       docs.map(async (doc) => {
@@ -270,7 +301,8 @@ export class SearchService {
           ...doc,
           content,
           createdAt: doc.createdAt ? new Date(doc.createdAt) : null,
-          updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : null
+          updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : null,
+          tags: tagsByDocument[doc.id] || []
         }
       })
     )

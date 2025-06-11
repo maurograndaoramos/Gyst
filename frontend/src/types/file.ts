@@ -4,5 +4,13 @@ export interface FileData {
   originalFilename: string | null;
   filePath: string | null;
   content: string | null;
-  createdAt: Date | null;
+  summary: string | null;
+  analysisStatus: string | null;
+  size: number | null;
+  createdAt: Date | string | null;
+  updatedAt: Date | string | null;
+  tags?: Array<{
+    name: string;
+    confidence: number;
+  }>;
 }

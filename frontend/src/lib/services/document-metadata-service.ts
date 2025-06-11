@@ -145,4 +145,82 @@ export class DocumentMetadataService {
       throw new DatabaseError(`Failed to retrieve document metadata: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+
+  /**
+   * Updates an existing document with analysis results (summary and tags).
+   */
+  async updateDocumentAnalysis(documentId: string, analysisData: {
+    summary?: string;
+    tags: TagData[];
+  }): Promise<void> {
+    try {
+      await db.transaction(async (tx) => {
+        // 1. Update document with summary
+        if (analysisData.summary) {
+          await tx
+            .update(documents)
+            .set({
+              summary: analysisData.summary,
+              updatedAt: new Date(),
+            })
+            .where(eq(documents.id, documentId));
+        }
+
+        // 2. Remove existing tags for this document
+        await tx
+          .delete(documentTags)
+          .where(eq(documentTags.documentId, documentId));
+
+        // 3. Process new tags with deduplication
+        const tagMap = new Map<string, { id: string; confidence: number }>();
+
+        for (const tagData of analysisData.tags) {
+          // Check if tag exists
+          const existingTag = await tx
+            .select()
+            .from(tags)
+            .where(eq(tags.name, tagData.name))
+            .get();
+
+          let tagId: string;
+
+          if (existingTag) {
+            tagId = existingTag.id;
+          } else {
+            // Create new tag
+            const [newTag] = await tx
+              .insert(tags)
+              .values({
+                name: tagData.name,
+              })
+              .returning({ id: tags.id });
+
+            if (!newTag) {
+              throw new DatabaseError("Failed to create tag record");
+            }
+            tagId = newTag.id;
+          }
+
+          // Store tag with confidence score
+          tagMap.set(tagId, { id: tagId, confidence: tagData.confidence });
+        }
+
+        // 4. Batch insert new document-tag relationships
+        if (tagMap.size > 0) {
+          const documentTagValues = Array.from(tagMap.values()).map(({ id, confidence }) => ({
+            documentId: documentId,
+            tagId: id,
+            confidence,
+          }));
+
+          await tx.insert(documentTags).values(documentTagValues);
+        }
+      });
+    } catch (error) {
+      if (error instanceof DatabaseError) {
+        throw error;
+      }
+      throw new DatabaseError(`Failed to update document analysis: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }

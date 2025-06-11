@@ -58,7 +58,8 @@ export async function getOrganizationContext(): Promise<OrganizationContext | nu
   // In a real application, you might have a separate user_organizations table
   const user = await db.select({
     id: users.id,
-    organizationId: sql<string>`COALESCE(${users.organizationId}, 'default')`.as('organizationId')
+    organizationId: sql<string>`COALESCE(${users.organizationId}, 'default')`.as('organizationId'),
+    role: users.role
   }).from(users).where(eq(users.id, session.user.id)).get()
 
   if (!user) {
@@ -68,10 +69,18 @@ export async function getOrganizationContext(): Promise<OrganizationContext | nu
     )
   }
 
+  // Map database role to RBAC role
+  let rbacRole: 'admin' | 'member' | 'viewer' = 'member'
+  if (user.role === 'admin') {
+    rbacRole = 'admin'
+  } else if (user.role === 'user') {
+    rbacRole = 'member' // Map 'user' from DB to 'member' in RBAC
+  }
+
   return {
     organizationId: user.organizationId || 'default',
     userId: user.id,
-    role: 'member', // Default role - implement proper role fetching
+    role: rbacRole,
     bypassSecurityCheck: false
   }
 }

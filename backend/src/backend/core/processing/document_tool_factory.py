@@ -126,7 +126,9 @@ class DocumentToolFactory:
     
     def create_tool(self, file_path: str, config_override: Optional[Dict[str, Any]] = None) -> BaseTool:
         """Create an appropriate tool for the given file path."""
-        file_ext = Path(file_path).suffix.lower()
+        # Resolve the file path to the correct location
+        resolved_path = self._resolve_file_path(file_path)
+        file_ext = resolved_path.suffix.lower()
         
         if not self.has_support_for(file_ext):
             raise ValueError(f"Unsupported file extension: {file_ext}")
@@ -138,25 +140,25 @@ class DocumentToolFactory:
         final_config = config_override or tool_config.config
         
         try:
-            # Create tool instance with configuration
+            # Create tool instance with the resolved path
             if final_config:
-                tool = tool_class(config=final_config)
+                tool = tool_class(file_path=str(resolved_path), config=final_config)
             else:
-                tool = tool_class()
+                tool = tool_class(file_path=str(resolved_path))
                 
-            logger.info(f"Created {tool_class.__name__} for file: {file_path}")
+            logger.info(f"Created {tool_class.__name__} for file: {resolved_path} (original: {file_path})")
             return tool
             
         except Exception as e:
-            logger.error(f"Failed to create {tool_class.__name__} for {file_path}: {str(e)}")
+            logger.error(f"Failed to create {tool_class.__name__} for {resolved_path}: {str(e)}")
             # Try fallback tools
             for fallback_class in tool_config.fallback_tools:
                 try:
                     if final_config and fallback_class != FileReadTool:
-                        fallback_tool = fallback_class(config=final_config)
+                        fallback_tool = fallback_class(file_path=str(resolved_path), config=final_config)
                     else:
-                        fallback_tool = fallback_class()
-                    logger.warning(f"Using fallback tool {fallback_class.__name__} for {file_path}")
+                        fallback_tool = fallback_class(file_path=str(resolved_path))
+                    logger.warning(f"Using fallback tool {fallback_class.__name__} for {resolved_path}")
                     return fallback_tool
                 except Exception as fallback_error:
                     logger.error(f"Fallback {fallback_class.__name__} also failed: {str(fallback_error)}")
@@ -188,19 +190,46 @@ class DocumentToolFactory:
             }
         return info
     
+    def _resolve_file_path(self, file_path: str) -> Path:
+        """Resolve file path to the correct location (frontend uploads directory)."""
+        path = Path(file_path)
+        
+        # If it's already an absolute path, use it as-is
+        if path.is_absolute():
+            return path
+        
+        # For relative paths, resolve to the project root frontend uploads
+        # Backend working dir: /home/caboz/dev/Gyst/backend/
+        # Frontend uploads: /home/caboz/dev/Gyst/frontend/uploads/
+        # File path: backend/src/backend/core/processing/document_tool_factory.py
+        # Need 6 .parent calls: processing -> core -> backend -> src -> backend -> Gyst (project root)
+        project_root = Path(__file__).parent.parent.parent.parent.parent.parent  # Go up to project root (6 levels)
+        frontend_uploads = project_root / "frontend" / "uploads"
+        
+        # If path starts with "uploads/", remove it since we're pointing to frontend/uploads
+        if str(path).startswith("uploads/"):
+            relative_path = str(path)[8:]  # Remove "uploads/" prefix
+            resolved_path = frontend_uploads / relative_path
+        else:
+            resolved_path = frontend_uploads / path
+        
+        logger.debug(f"Resolved path: {file_path} -> {resolved_path}")
+        return resolved_path
+
     async def validate_file_access(self, file_path: str) -> bool:
         """Validate that a file can be accessed and processed."""
         try:
-            full_path = Path(file_path)
+            # Resolve to the correct path (frontend uploads directory)
+            full_path = self._resolve_file_path(file_path)
             
             # Check if file exists
             if not full_path.exists():
-                logger.error(f"File does not exist: {file_path}")
+                logger.error(f"File does not exist: {full_path} (original: {file_path})")
                 return False
             
             # Check if it's actually a file
             if not full_path.is_file():
-                logger.error(f"Path is not a file: {file_path}")
+                logger.error(f"Path is not a file: {full_path}")
                 return False
             
             # Check file extension support
@@ -210,9 +239,10 @@ class DocumentToolFactory:
             
             # Check file permissions
             if not os.access(full_path, os.R_OK):
-                logger.error(f"No read permission for file: {file_path}")
+                logger.error(f"No read permission for file: {full_path}")
                 return False
             
+            logger.info(f"File validation successful: {full_path}")
             return True
             
         except Exception as e:

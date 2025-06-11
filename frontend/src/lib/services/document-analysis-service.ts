@@ -1,5 +1,8 @@
 import { DocumentMetadataService } from './document-metadata-service';
 import { FileStorageService } from '@/lib/utils/file-storage';
+import { db } from '@/lib/db';
+import { documents } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 interface AnalysisResult {
   tags: Array<{
@@ -34,11 +37,13 @@ export class DocumentAnalysisService {
         throw new Error('Document not found');
       }
 
-      // 2. Get absolute file path
+      // 2. Get relative file path (backend expects relative paths for security)
       if (!metadata.filePath) {
         throw new Error('Document file path not found');
       }
-      const absolutePath = this.fileStorage.getAbsolutePath(metadata.filePath);
+      
+      // Backend expects path relative to working directory including uploads/ prefix
+      const relativePath = `uploads/${metadata.filePath}`;
 
       // 3. Call Python service for analysis
       try {
@@ -48,7 +53,7 @@ export class DocumentAnalysisService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            document_path: absolutePath,
+            document_path: relativePath,
             max_tags: 10,
             generate_summary: true,
           }),
@@ -62,21 +67,9 @@ export class DocumentAnalysisService {
 
         const result: AnalysisResult = await response.json();
 
-        // 4. Update document metadata with new tags
-        if (!metadata.originalFilename || !metadata.mimeType || metadata.size === null) {
-          throw new Error('Document metadata incomplete');
-        }
-        
-        await this.metadataService.storeDocumentMetadata({
-          organizationId: metadata.organizationId,
-          projectId: metadata.projectId || undefined,
-          title: metadata.title,
-          content: metadata.content || undefined,
-          filePath: metadata.filePath, // Already validated above
-          originalFilename: metadata.originalFilename,
-          mimeType: metadata.mimeType,
-          size: metadata.size,
-          createdBy: metadata.createdBy,
+        // 4. Update document with analysis results (summary and tags)
+        await this.metadataService.updateDocumentAnalysis(documentId, {
+          summary: result.summary,
           tags: result.tags,
         });
 

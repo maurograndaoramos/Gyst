@@ -1,7 +1,7 @@
 'use client'
 import * as React from "react"
 import { SmartFileRenderer } from "@/components/smart-file-renderer";
-import { AppSidebar } from "@/components/app-sidebar"
+import { EnhancedAppSidebar } from "@/components/EnhancedAppSidebar"
 import FileValidator, { type FileWithPreview } from "@/components/FileValidator";
 import UploadProgressModal, { type FileProgress } from "@/components/UploadProgressModal";
 import { useAuth } from "@/hooks/use-auth";
@@ -51,23 +51,63 @@ export default function Page() {
   const [isReordering, setIsReordering] = useState(false);
   const isAdmin = role === 'admin';
 
-  // Handle quick upload from sidebar
-  const handleQuickUpload = () => {
+  // Initialize file validation hook at component level
+  const { validate: validateFile } = useFileValidation();
+
+  // Handle quick upload from sidebar with proper validation
+  const handleQuickUpload = async () => {
     // Create a file input element and trigger it
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = '.txt,.md,.pdf,.docx';
-    input.onchange = (e) => {
-      const files = Array.from((e.target as HTMLInputElement).files || []);
-      if (files.length > 0) {
-        const filesWithPreview = files.map(file => ({
-          ...file,
-          preview: URL.createObjectURL(file),
-          isValid: true,
-          errors: []
-        } as FileWithPreview));
-        handleFilesValidated(filesWithPreview);
+    input.accept = '.txt,.md,.pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.gif';
+    input.onchange = async (e) => {
+      const selectedFiles = Array.from((e.target as HTMLInputElement).files || []);
+      if (selectedFiles.length === 0) return;
+
+      // Use the same validation logic as FileValidator
+      const validatedFiles: FileWithPreview[] = [];
+
+      for (const file of selectedFiles) {
+        try {
+          const validationResult = await validateFile(file);
+          
+          const fileWithPreview: FileWithPreview = {
+            ...file,
+            preview: URL.createObjectURL(file),
+            isValid: validationResult.isValid,
+            errors: validationResult.errors || []
+          };
+
+          validatedFiles.push(fileWithPreview);
+        } catch (error) {
+          console.error('File validation error:', error);
+          
+          // Add file with errors if validation fails
+          const fileWithPreview: FileWithPreview = {
+            ...file,
+            preview: URL.createObjectURL(file),
+            isValid: false,
+            errors: [error instanceof Error ? error.message : 'Validation failed']
+          };
+
+          validatedFiles.push(fileWithPreview);
+        }
+      }
+
+      // Only process valid files
+      const validFiles = validatedFiles.filter(file => file.isValid);
+      
+      if (validFiles.length > 0) {
+        handleFilesValidated(validFiles);
+      }
+
+      // Show validation errors for invalid files
+      const invalidFiles = validatedFiles.filter(file => !file.isValid);
+      if (invalidFiles.length > 0) {
+        console.warn('Some files failed validation:', invalidFiles.map(f => ({ name: f.name, errors: f.errors })));
+        // TODO: Show toast notification for invalid files
+        alert(`${invalidFiles.length} file(s) failed validation. Check console for details.`);
       }
     };
     input.click();
@@ -370,14 +410,14 @@ export default function Page() {
   return (
     <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
       <SidebarProvider>
-          <AppSidebar
+          <EnhancedAppSidebar
             onFileSelect={handleFileSelect}
             onFilesReorder={handleFilesReorder}
+            onFileListRefresh={fetchFiles}
             organizationId={organizationId}
             files={files}
             loading={loading || isReordering}
             isAdmin={isAdmin}
-            onQuickUpload={handleQuickUpload}
         />
         <SidebarInset>
           <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between bg-background border-b border-border shadow-sm">
