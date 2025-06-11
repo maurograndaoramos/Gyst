@@ -141,13 +141,22 @@ export function EnhancedAppSidebar({
   const performSearch = async (query: string) => {
     setIsSearching(true)
     try {
+      console.log('Performing search for:', query, 'organizationId:', organizationId)
       const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&organizationId=${organizationId}&highlight=true`)
+      console.log('Search response status:', response.status)
+      
       if (response.ok) {
         const searchResponse = await response.json()
-        setSearchResults(searchResponse.results)
+        console.log('Search response:', searchResponse)
+        setSearchResults(searchResponse.results || [])
+      } else {
+        const errorData = await response.json()
+        console.error('Search API error:', errorData)
+        setSearchResults([])
       }
     } catch (error) {
       console.error('Search failed:', error)
+      setSearchResults([])
     } finally {
       setIsSearching(false)
     }
@@ -262,6 +271,8 @@ export function EnhancedAppSidebar({
   const handleUpdateTags = async (fileId: string, tags: string[]) => {
     try {
       await updateTags(fileId, tags)
+      // Refresh tags list after successful update
+      await fetchTags()
     } catch (error) {
       console.error('Failed to update tags:', error)
     }

@@ -28,7 +28,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const documentId = params.id
-    const { selectedTagId, customTagName, confidence = 0.9 } = await request.json()
+    const body = await request.json()
+    
+    // Support both single tag and multiple tags formats
+    const { selectedTagId, customTagName, confidence = 0.9, tags: tagArray } = body
 
     // 2. Verify document exists and belongs to organization
     const [document] = await db
@@ -47,6 +50,69 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }, { status: 404 })
     }
 
+    // Handle multiple tags (new format)
+    if (tagArray !== undefined && Array.isArray(tagArray)) {
+      // Remove all existing tags for this document first
+      await db.delete(documentTags).where(eq(documentTags.documentId, documentId))
+
+      const resultTags = []
+
+      // If tagArray is empty, we're removing all tags - just return success
+      if (tagArray.length === 0) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            tags: []
+          }
+        })
+      }
+
+      // Process each tag in the array
+      for (const tagData of tagArray) {
+        try {
+          const tagName = typeof tagData === 'string' ? tagData : tagData.name
+          const tagConfidence = typeof tagData === 'object' ? tagData.confidence || 1.0 : 1.0
+
+          if (!tagName || tagName.trim() === '') {
+            continue // Skip empty tag names
+          }
+
+          // Create or get existing tag
+          const [tag] = await db.insert(tags).values({
+            name: tagName.trim()
+          }).onConflictDoUpdate({
+            target: tags.name,
+            set: {
+              updatedAt: new Date()
+            }
+          }).returning()
+
+          // Add the tag relationship
+          await db.insert(documentTags).values({
+            documentId,
+            tagId: tag.id,
+            confidence: tagConfidence
+          })
+
+          resultTags.push({
+            name: tag.name,
+            confidence: tagConfidence
+          })
+        } catch (tagError) {
+          console.error(`Error processing tag:`, tagError)
+          // Continue with other tags instead of failing completely
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          tags: resultTags
+        }
+      })
+    }
+
+    // Handle single tag (legacy format)
     let tagId = selectedTagId
 
     // 3. Create custom tag if provided

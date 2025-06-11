@@ -127,9 +127,11 @@ export function useDocumentActions({
 
       const result = await response.json()
       
-      // Update local state with new tags
+      // Update local state with new tags (handle both single and multiple tag formats)
+      const resultTags = result.data?.tags || (result.data?.tag ? [{ name: result.data.tag.name, confidence: result.data.documentTag?.confidence || 1.0 }] : tags.map(tag => ({ name: tag, confidence: 1.0 })))
+      
       onFileUpdate?.(fileId, { 
-        tags: result.tags || tags.map(tag => ({ name: tag, confidence: 1.0 }))
+        tags: resultTags
       })
       
       onRefreshFiles?.()
