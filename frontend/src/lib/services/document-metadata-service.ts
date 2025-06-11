@@ -55,30 +55,30 @@ export class DocumentMetadataService {
         const tagMap = new Map<string, { id: string; confidence: number }>();
 
         for (const tagData of metadata.tags) {
-          // Check if tag exists
-          const existingTag = await tx
+          // Check if tag exists - use proper transaction syntax
+          const existingTags = await tx
             .select()
             .from(tags)
             .where(eq(tags.name, tagData.name))
-            .get();
+            .limit(1);
 
           let tagId: string;
 
-          if (existingTag) {
-            tagId = existingTag.id;
+          if (existingTags.length > 0) {
+            tagId = existingTags[0].id;
           } else {
             // Create new tag
-            const [newTag] = await tx
+            const newTags = await tx
               .insert(tags)
               .values({
                 name: tagData.name,
               })
               .returning({ id: tags.id });
 
-            if (!newTag) {
+            if (!newTags || newTags.length === 0) {
               throw new DatabaseError("Failed to create tag record");
             }
-            tagId = newTag.id;
+            tagId = newTags[0].id;
           }
 
           // Store tag with confidence score
@@ -87,11 +87,13 @@ export class DocumentMetadataService {
 
         // 3. Batch insert document-tag relationships
         if (tagMap.size > 0) {
-          const documentTagValues = Array.from(tagMap.values()).map(({ id, confidence }) => ({
-            documentId: document.id,
-            tagId: id,
-            confidence,
-          }));
+          const documentTagValues = Array.from(tagMap.values()).map(
+            ({ id, confidence }) => ({
+              documentId: document.id,
+              tagId: id,
+              confidence,
+            })
+          );
 
           await tx.insert(documentTags).values(documentTagValues);
         }
@@ -102,7 +104,11 @@ export class DocumentMetadataService {
       if (error instanceof DatabaseError) {
         throw error;
       }
-      throw new DatabaseError(`Failed to store document metadata: ${error instanceof Error ? error.message : String(error)}`);
+      throw new DatabaseError(
+        `Failed to store document metadata: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 
@@ -111,15 +117,17 @@ export class DocumentMetadataService {
    */
   async getDocumentMetadata(documentId: string) {
     try {
-      const document = await db
+      const documents_result = await db
         .select()
         .from(documents)
         .where(eq(documents.id, documentId))
-        .get();
+        .limit(1);
 
-      if (!document) {
+      if (!documents_result || documents_result.length === 0) {
         throw new DatabaseError("Document not found");
       }
+
+      const document = documents_result[0];
 
       const docTags = await db
         .select({
@@ -128,8 +136,7 @@ export class DocumentMetadataService {
         })
         .from(documentTags)
         .innerJoin(tags, eq(documentTags.tagId, tags.id))
-        .where(eq(documentTags.documentId, documentId))
-        .all();
+        .where(eq(documentTags.documentId, documentId));
 
       return {
         ...document,
@@ -142,17 +149,24 @@ export class DocumentMetadataService {
       if (error instanceof DatabaseError) {
         throw error;
       }
-      throw new DatabaseError(`Failed to retrieve document metadata: ${error instanceof Error ? error.message : String(error)}`);
+      throw new DatabaseError(
+        `Failed to retrieve document metadata: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 
   /**
    * Updates an existing document with analysis results (summary and tags).
    */
-  async updateDocumentAnalysis(documentId: string, analysisData: {
-    summary?: string;
-    tags: TagData[];
-  }): Promise<void> {
+  async updateDocumentAnalysis(
+    documentId: string,
+    analysisData: {
+      summary?: string;
+      tags: TagData[];
+    }
+  ): Promise<void> {
     try {
       await db.transaction(async (tx) => {
         // 1. Update document with summary
@@ -175,30 +189,30 @@ export class DocumentMetadataService {
         const tagMap = new Map<string, { id: string; confidence: number }>();
 
         for (const tagData of analysisData.tags) {
-          // Check if tag exists
-          const existingTag = await tx
+          // Check if tag exists - use proper transaction syntax
+          const existingTags = await tx
             .select()
             .from(tags)
             .where(eq(tags.name, tagData.name))
-            .get();
+            .limit(1);
 
           let tagId: string;
 
-          if (existingTag) {
-            tagId = existingTag.id;
+          if (existingTags.length > 0) {
+            tagId = existingTags[0].id;
           } else {
             // Create new tag
-            const [newTag] = await tx
+            const newTags = await tx
               .insert(tags)
               .values({
                 name: tagData.name,
               })
               .returning({ id: tags.id });
 
-            if (!newTag) {
+            if (!newTags || newTags.length === 0) {
               throw new DatabaseError("Failed to create tag record");
             }
-            tagId = newTag.id;
+            tagId = newTags[0].id;
           }
 
           // Store tag with confidence score
@@ -207,11 +221,13 @@ export class DocumentMetadataService {
 
         // 4. Batch insert new document-tag relationships
         if (tagMap.size > 0) {
-          const documentTagValues = Array.from(tagMap.values()).map(({ id, confidence }) => ({
-            documentId: documentId,
-            tagId: id,
-            confidence,
-          }));
+          const documentTagValues = Array.from(tagMap.values()).map(
+            ({ id, confidence }) => ({
+              documentId: documentId,
+              tagId: id,
+              confidence,
+            })
+          );
 
           await tx.insert(documentTags).values(documentTagValues);
         }
@@ -220,7 +236,11 @@ export class DocumentMetadataService {
       if (error instanceof DatabaseError) {
         throw error;
       }
-      throw new DatabaseError(`Failed to update document analysis: ${error instanceof Error ? error.message : String(error)}`);
+      throw new DatabaseError(
+        `Failed to update document analysis: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 }
