@@ -94,73 +94,41 @@ async def analyze_document(request: AnalyzeDocumentRequest) -> Union[AnalyzeDocu
             details=str(e)
         )
         
-        return JSONResponse(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=error_response.dict()
+            detail=error_response.dict()
         )
         
     except FileNotFoundError as e:
         error_msg = f"Document not found: {str(e)}"
         logger.error(error_msg)
-        
-        error_response = AnalyzeDocumentErrorResponse(
-            request_id=request_id or "unknown",
-            error="file_not_found",
-            message="The specified document could not be found",
-            details=str(e)
-        )
-        
-        return JSONResponse(
+        raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            content=error_response.dict()
+            detail=f"The specified document could not be found: {str(e)}"
         )
         
     except ValueError as e:
         error_msg = f"Invalid request: {str(e)}"
         logger.error(error_msg)
-        
-        error_response = AnalyzeDocumentErrorResponse(
-            request_id=request_id or "unknown",
-            error="invalid_request",
-            message="Invalid request parameters or file path",
-            details=str(e)
-        )
-        
-        return JSONResponse(
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=error_response.dict()
+            detail=f"Invalid request parameters or file path: {str(e)}"
         )
         
     except PermissionError as e:
         error_msg = f"Permission denied: {str(e)}"
         logger.error(error_msg)
-        
-        error_response = AnalyzeDocumentErrorResponse(
-            request_id=request_id or "unknown",
-            error="permission_denied",
-            message="Access denied to the specified document",
-            details=str(e)
-        )
-        
-        return JSONResponse(
+        raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            content=error_response.dict()
+            detail=f"Access denied to the specified document: {str(e)}"
         )
         
     except Exception as e:
         error_msg = f"Internal server error during document analysis: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        
-        error_response = AnalyzeDocumentErrorResponse(
-            request_id=request_id or "unknown",
-            error="internal_server_error",
-            message="An unexpected error occurred during document analysis",
-            details="Please check the server logs for more information"
-        )
-        
-        return JSONResponse(
+        raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=error_response.dict()
+            detail=f"An unexpected error occurred during document analysis: {str(e)}"
         )
 
 @router.get(

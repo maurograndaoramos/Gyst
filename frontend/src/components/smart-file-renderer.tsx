@@ -4,16 +4,10 @@ import React from 'react';
 import { MarkdownRenderer } from './markdown-renderer';
 import PDFViewer from './pdf-viewer';
 import { FileText, FileCode, File } from 'lucide-react';
+import type { FileData } from '@/types/file';
 
 interface SmartFileRendererProps {
-  file: {
-    id: string;
-    title: string;
-    originalFilename: string | null;
-    filePath: string | null;
-    content: string | null;
-    createdAt: Date | null;
-  };
+  file: FileData;
   className?: string;
 }
 

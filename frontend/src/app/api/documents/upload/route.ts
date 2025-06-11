@@ -7,6 +7,7 @@ import { validateFile, sanitizeFilename } from '@/lib/utils/file-validation'
 import { FileStorageService } from '@/lib/utils/file-storage'
 import { db } from '@/lib/db'
 import { documents } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { MAX_FILE_SIZE, type UploadResponse } from '@/lib/types/upload'
 import { DocumentAnalysisService } from '@/lib/services/document-analysis-service'
 
@@ -139,17 +140,33 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       size: uploadedFile.size,
       content: fileContent,
       createdBy: context.userId,
-      projectId: projectId || null
+      projectId: projectId || null,
+      analysisStatus: 'analyzing'
     }).returning()
 
-    // 8. Trigger AI analysis
-    try {
-      await documentAnalysisService.analyzeDocument(document.id);
-    } catch (analysisError) {
-      console.error('Document analysis failed:', analysisError);
-      // Continue with the upload response even if analysis fails
-      // The document is still usable, just without AI tags
-    }
+    // 8. Trigger AI analysis asynchronously
+    documentAnalysisService.analyzeDocument(document.id)
+      .then(async () => {
+        // Update status to completed on success
+        await db.update(documents)
+          .set({
+            analysisStatus: 'completed',
+            analysisError: null,
+            updatedAt: new Date()
+          })
+          .where(eq(documents.id, document.id))
+      })
+      .catch(async (error) => {
+        // Update status to failed on error
+        console.error('Document analysis failed:', error)
+        await db.update(documents)
+          .set({
+            analysisStatus: 'failed',
+            analysisError: error.message || 'Analysis failed',
+            updatedAt: new Date()
+          })
+          .where(eq(documents.id, document.id))
+      })
 
     // 9. Success response
     return NextResponse.json({
