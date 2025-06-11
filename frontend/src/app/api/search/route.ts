@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const highlight = searchParams.get('highlight') === 'true'
 
+    console.log('Search API called with:', { query, organizationId, tags, page, limit, highlight })
+
     // Validate required parameters
     if (!organizationId) {
       return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 })
@@ -37,11 +39,13 @@ export async function GET(request: NextRequest) {
       highlight
     })
 
+    console.log('Search results:', { totalResults: searchResponse.total, resultCount: searchResponse.results.length })
+
     return NextResponse.json(searchResponse)
   } catch (error) {
     console.error('Search API error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

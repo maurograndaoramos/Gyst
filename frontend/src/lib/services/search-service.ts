@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { documents, tags, documentTags } from '@/lib/db/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, inArray } from 'drizzle-orm'
 import fs from 'fs/promises'
 import path from 'path'
 
@@ -59,6 +59,8 @@ export class SearchService {
       highlight = false
     } = params
 
+    console.log('SearchService.searchDocuments called with:', { query, organizationId, tags, page, limit })
+
     const offset = (page - 1) * limit
 
     let results: SearchResult[] = []
@@ -66,13 +68,17 @@ export class SearchService {
 
     try {
       if (query && query.trim().length > 0) {
+        console.log('Performing FTS search for query:', query)
         // Use FTS5 search
         results = await this.performFTSSearch(query, organizationId, offset, limit, highlight)
         total = await this.getFTSSearchCount(query, organizationId)
+        console.log('FTS search results:', { resultsCount: results.length, total })
       } else {
+        console.log('No query provided, getting organization documents')
         // No query, just return organization documents (optionally filtered by tags)
         results = await this.getOrganizationDocuments(organizationId, tags, offset, limit)
         total = await this.getOrganizationDocumentsCount(organizationId, tags)
+        console.log('Organization documents:', { resultsCount: results.length, total })
       }
 
       // Apply tag filtering if specified (for FTS results)
@@ -90,7 +96,7 @@ export class SearchService {
       }
     } catch (error) {
       console.error('Search error:', error)
-      throw new Error('Search failed')
+      throw new Error(`Search failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -105,6 +111,7 @@ export class SearchService {
     highlight: boolean
   ): Promise<SearchResult[]> {
     const escapedQuery = this.escapeFTSQuery(query)
+    console.log('FTS search - escaped query:', escapedQuery, 'organizationId:', organizationId)
     
     // Access the underlying better-sqlite3 instance
     const sqlite = (db as any).$client
@@ -124,20 +131,26 @@ export class SearchService {
       LIMIT ? OFFSET ?
     `).all(escapedQuery, organizationId, limit, offset)
 
+    console.log('FTS raw results count:', ftsResults.length)
+
     // Get full document details
     if (ftsResults.length === 0) return []
 
     const documentIds = ftsResults.map((r: any) => r.document_id)
+    console.log('Document IDs from FTS:', documentIds)
+    
+    // Use inArray with the documentIds
     const documentsData = await db
       .select()
       .from(documents)
       .where(
         and(
-          sql`${documents.id} IN (${sql.join(documentIds.map(() => sql.placeholder('id')), sql`, `)})`,
+          inArray(documents.id, documentIds),
           eq(documents.organizationId, organizationId)
         )
       )
-      .execute()
+
+    console.log('Documents data retrieved:', documentsData.length)
 
     // Merge FTS results with document data
     return documentsData.map(doc => {
@@ -224,14 +237,32 @@ export class SearchService {
    * Escape FTS5 query to prevent injection
    */
   private escapeFTSQuery(query: string): string {
-    // Remove potentially dangerous FTS5 operators and escape quotes
-    return query
-      .replace(/[^\w\s-]/g, ' ') // Remove special chars except word chars, spaces, and hyphens
+    // Clean and escape the query for FTS5
+    const cleaned = query
+      .replace(/["']/g, '') // Remove quotes to prevent injection
+      .replace(/[^\w\s\-\.]/g, ' ') // Keep word chars, spaces, hyphens, and dots
       .trim()
+    
+    if (!cleaned) return '""' // Return empty match if nothing left
+    
+    // Split into terms and create a more flexible search
+    const terms = cleaned
       .split(/\s+/)
       .filter(term => term.length > 0)
-      .map(term => `"${term}"`)
-      .join(' OR ')
+    
+    if (terms.length === 0) return '""'
+    
+    // For single term, try both exact and prefix matching
+    if (terms.length === 1) {
+      const term = terms[0]
+      return `"${term}" OR ${term}*`
+    }
+    
+    // For multiple terms, try phrase match and individual terms
+    const phraseMatch = `"${terms.join(' ')}"`
+    const termMatches = terms.map(term => `${term}*`).join(' OR ')
+    
+    return `${phraseMatch} OR ${termMatches}`
   }
 
   /**
