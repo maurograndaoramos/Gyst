@@ -71,8 +71,9 @@ class PatternRecognitionService:
         # Configure Gemini with pattern recognition settings
         genai.configure(api_key=self.settings.gemini_api_key)
         
-        # Base upload directory from settings
-        self.upload_base_dir = Path(self.settings.upload_base_dir)
+        # Base upload directory from settings (which now points to frontend/uploads)
+        self.upload_base_dir = Path(self.settings.upload_base_dir).resolve()
+        logger.info(f"Pattern Recognition Service using upload directory: {self.upload_base_dir}")
         
         # Initialize enhanced tool factory with pattern recognition config
         self.tool_factory = DocumentToolFactory(unified_config=PATTERN_RECOGNITION_CONFIG)

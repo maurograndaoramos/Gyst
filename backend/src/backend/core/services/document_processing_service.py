@@ -390,7 +390,7 @@ class DocumentProcessingService:
     
     async def _extract_content_async(self, document_path: str):
         """Extract content asynchronously using thread executor."""
-        # Resolve the path to the correct location (frontend uploads)
+        # Use the document factory's path resolution for consistency
         resolved_path = self.document_factory._resolve_file_path(document_path)
         
         loop = asyncio.get_event_loop()

@@ -126,8 +126,17 @@ class DocumentToolFactory:
     
     def create_tool(self, file_path: str, config_override: Optional[Dict[str, Any]] = None) -> BaseTool:
         """Create an appropriate tool for the given file path."""
-        # Resolve the file path to the correct location
-        resolved_path = self._resolve_file_path(file_path)
+        # Check if path is already absolute (pre-resolved by calling service)
+        path = Path(file_path)
+        if path.is_absolute():
+            # Path is already resolved, use as-is
+            resolved_path = path
+            logger.debug(f"Using pre-resolved absolute path: {resolved_path}")
+        else:
+            # Path needs resolution (legacy behavior)
+            resolved_path = self._resolve_file_path(file_path)
+            logger.debug(f"Resolved relative path: {file_path} -> {resolved_path}")
+        
         file_ext = resolved_path.suffix.lower()
         
         if not self.has_support_for(file_ext):
@@ -191,35 +200,35 @@ class DocumentToolFactory:
         return info
     
     def _resolve_file_path(self, file_path: str) -> Path:
-        """Resolve file path to the correct location (frontend uploads directory)."""
+        """Resolve file path to the correct location using settings configuration."""
         path = Path(file_path)
         
         # If it's already an absolute path, use it as-is
         if path.is_absolute():
             return path
         
-        # For relative paths, resolve to the project root frontend uploads
-        # Backend working dir: /home/caboz/dev/Gyst/backend/
-        # Frontend uploads: /home/caboz/dev/Gyst/frontend/uploads/
-        # File path: backend/src/backend/core/processing/document_tool_factory.py
-        # Need 6 .parent calls: processing -> core -> backend -> src -> backend -> Gyst (project root)
-        project_root = Path(__file__).parent.parent.parent.parent.parent.parent  # Go up to project root (6 levels)
-        frontend_uploads = project_root / "frontend" / "uploads"
+        # For relative paths, resolve using the configured upload base directory
+        # This now uses the settings which point to the correct frontend/uploads directory
+        upload_base_dir = Path(self.settings.upload_base_dir).resolve()
         
-        # If path starts with "uploads/", remove it since we're pointing to frontend/uploads
+        logger.debug(f"Tool factory using upload base dir: {upload_base_dir}")
+        logger.debug(f"Upload base dir exists: {upload_base_dir.exists()}")
+        
+        # If path starts with "uploads/", remove it since we're pointing to the uploads directory
         if str(path).startswith("uploads/"):
             relative_path = str(path)[8:]  # Remove "uploads/" prefix
-            resolved_path = frontend_uploads / relative_path
+            resolved_path = upload_base_dir / relative_path
         else:
-            resolved_path = frontend_uploads / path
+            resolved_path = upload_base_dir / path
         
         logger.debug(f"Resolved path: {file_path} -> {resolved_path}")
+        logger.debug(f"Resolved path exists: {resolved_path.exists()}")
         return resolved_path
 
     async def validate_file_access(self, file_path: str) -> bool:
         """Validate that a file can be accessed and processed."""
         try:
-            # Resolve to the correct path (frontend uploads directory)
+            # Resolve to the correct path using settings configuration
             full_path = self._resolve_file_path(file_path)
             
             # Check if file exists

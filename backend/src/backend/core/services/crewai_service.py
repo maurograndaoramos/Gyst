@@ -35,8 +35,10 @@ class DocumentAnalysisService:
         # Configure Gemini
         genai.configure(api_key=self.settings.gemini_api_key)
         
-        # Base upload directory from settings
-        self.upload_base_dir = Path(self.settings.upload_base_dir)
+        # Base upload directory from settings (which now correctly points to frontend/uploads)
+        self.upload_base_dir = Path(self.settings.upload_base_dir).resolve()
+        logger.info(f"CrewAI service using upload directory: {self.upload_base_dir}")
+        logger.info(f"Upload directory exists: {self.upload_base_dir.exists()}")
         
         # Initialize components
         self.tool_factory = get_document_tool_factory()
@@ -96,8 +98,11 @@ class DocumentAnalysisService:
         This prevents tool conflicts by ensuring each agent only has access
         to the tool appropriate for the specific file type.
         """
-        # Get the appropriate tool for this document
-        tool = self.tool_factory.create_tool(document_path)
+        # Validate and get the resolved full path
+        full_path = self._validate_file_path(document_path)
+        
+        # Get the appropriate tool for this document using the full resolved path
+        tool = self.tool_factory.create_tool(full_path)
         
         # Create document analyzer with specific tool
         document_analyzer = Agent(
@@ -125,6 +130,14 @@ class DocumentAnalysisService:
         # Construct full path
         full_path = self.upload_base_dir / document_path
         
+        # Debug logging
+        logger.info(f"Validating file path: {document_path}")
+        logger.info(f"Upload base dir: {self.upload_base_dir}")
+        logger.info(f"Full constructed path: {full_path}")
+        logger.info(f"Full path exists: {full_path.exists()}")
+        if full_path.exists():
+            logger.info(f"Is file: {full_path.is_file()}")
+        
         # Check if file exists
         if not full_path.exists():
             raise FileNotFoundError(f"Document not found: {document_path}")
@@ -151,6 +164,10 @@ class DocumentAnalysisService:
         Returns:
             AnalyzeDocumentResponse with tags and metadata
         """
+        logger.info(f"=== ANALYZE_DOCUMENT CALLED ===")
+        logger.info(f"Document path received: {document_path}")
+        logger.info(f"Upload base dir: {self.upload_base_dir}")
+        
         # Use circuit breaker to wrap the actual analysis
         return await self.circuit_breaker.call(
             self._analyze_document_internal,
@@ -168,6 +185,10 @@ class DocumentAnalysisService:
         """Internal implementation of document analysis."""
         start_time = time.time()
         request_id = str(uuid.uuid4())
+        
+        logger.info(f"=== _ANALYZE_DOCUMENT_INTERNAL CALLED ===")
+        logger.info(f"Document path: {document_path}")
+        logger.info(f"Upload base dir: {self.upload_base_dir}")
         
         try:
             # Validate file path and get full path
@@ -513,6 +534,7 @@ class DocumentAnalysisService:
     async def _get_initial_tags(self, file_path: str, max_tags: int) -> List[TagModel]:
         """Get initial tags for a document using basic analysis."""
         try:
+            # file_path here is already the full resolved path from _validate_file_path
             # Use appropriate tool based on file type
             tool = self.tool_factory.create_tool(file_path)
             
