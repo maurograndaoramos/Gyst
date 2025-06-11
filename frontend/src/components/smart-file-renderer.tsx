@@ -68,10 +68,9 @@ const getFileExtension = (filename: string | null): string => {
 
 // Helper function to generate PDF URL (you may need to adjust this based on your backend setup)
 const getPDFUrl = (file: SmartFileRendererProps['file']): string => {
-  // This assumes your backend serves PDF files directly
-  // Adjust the URL structure based on your backend implementation
-  if (file.filePath) {
-    return `/api/files/serve/${file.id}`;
+  // Get PDF file content from the documents endpoint
+  if (file.id) {
+    return `/api/documents/${file.id}/content`;
   }
   return '';
 };
