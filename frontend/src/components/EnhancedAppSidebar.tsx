@@ -186,11 +186,42 @@ export function EnhancedAppSidebar({
     }
   };
 
+  // Filter files by selected tags
+  const filterFilesByTags = React.useCallback((files: FileData[]) => {
+    if (selectedTags.length === 0) return files;
+    
+    return files.filter(file => {
+      if (!file.tags || file.tags.length === 0) return false;
+      
+      const fileTagNames = file.tags.map(tag => tag.name.toLowerCase());
+      const selectedTagNames = selectedTags.map(tagId => {
+        const tag = tags.find(t => t.id === tagId);
+        return tag?.name.toLowerCase() || '';
+      }).filter(Boolean);
+      
+      if (filterLogic === "AND") {
+        // All selected tags must be present in the file
+        return selectedTagNames.every(tagName => fileTagNames.includes(tagName));
+      } else {
+        // At least one selected tag must be present in the file
+        return selectedTagNames.some(tagName => fileTagNames.includes(tagName));
+      }
+    });
+  }, [selectedTags, tags, filterLogic]);
+
   // Filter local files for display when no search query
   const displayFiles = React.useMemo(() => {
-    if (debouncedSearch) return searchResults || [];
-    return localFiles || [];
-  }, [debouncedSearch, searchResults, localFiles]);
+    let files: FileData[];
+    
+    if (debouncedSearch) {
+      files = searchResults || [];
+    } else {
+      files = localFiles || [];
+    }
+    
+    // Apply tag filtering
+    return filterFilesByTags(files);
+  }, [debouncedSearch, searchResults, localFiles, filterFilesByTags]);
 
   // Fetch tags when organizationId changes
   React.useEffect(() => {
@@ -600,7 +631,7 @@ export function EnhancedAppSidebar({
           <SidebarGroup>
             <Collapsible
               open={!isTagsSectionCollapsed}
-              onOpenChange={setIsTagsSectionCollapsed}
+              onOpenChange={(open) => setIsTagsSectionCollapsed(!open)}
             >
               <CollapsibleTrigger asChild>
                 <SidebarGroupLabel className="flex items-center justify-between cursor-pointer hover:bg-accent/50 rounded px-2 py-1 mx-2">
@@ -615,7 +646,7 @@ export function EnhancedAppSidebar({
                   </span>
                   <ChevronDown
                     className={`w-4 h-4 transition-transform ${
-                      isTagsSectionCollapsed ? "-rotate-90" : ""
+                      !isTagsSectionCollapsed ? "" : "-rotate-90"
                     }`}
                   />
                 </SidebarGroupLabel>

@@ -14,6 +14,7 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -24,7 +25,8 @@ import useFileValidation from "@/hooks/useFileValidation";
 
 import type { FileData } from "@/types/file";
 
-export default function Page() {
+// Main dashboard content component that has access to sidebar context
+function DashboardContent() {
   const [width, setWidth] = useState(450);
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -50,6 +52,10 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
   const isAdmin = role === 'admin';
+
+  // Access sidebar state
+  const { state: leftSidebarState } = useSidebar();
+  const isLeftSidebarExpanded = leftSidebarState === "expanded";
 
   // Initialize file validation hook at component level
   const { validate: validateFile } = useFileValidation();
@@ -408,18 +414,17 @@ export default function Page() {
   };
 
   return (
-    <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
-      <SidebarProvider>
-          <EnhancedAppSidebar
-            onFileSelect={handleFileSelect}
-            onFilesReorder={handleFilesReorder}
-            onFileListRefresh={fetchFiles}
-            organizationId={organizationId}
-            files={files}
-            loading={loading || isReordering}
-            isAdmin={isAdmin}
-        />
-        <SidebarInset>
+    <>
+      <EnhancedAppSidebar
+        onFileSelect={handleFileSelect}
+        onFilesReorder={handleFilesReorder}
+        onFileListRefresh={fetchFiles}
+        organizationId={organizationId}
+        files={files}
+        loading={loading || isReordering}
+        isAdmin={isAdmin}
+      />
+      <SidebarInset>
           <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between bg-background border-b border-border shadow-sm">
             <div className="flex items-center gap-2 min-w-0 flex-1 h-16 px-4 mr-4">
               <SidebarTrigger className="-ml-1" />
@@ -478,11 +483,14 @@ export default function Page() {
           </header>
           <div className="w-full h-full flex">
             <div 
-              className="flex-1 h-full"
-              style={{ marginRight: isCollapsed ? 0 : width }}
+              className="flex-1 h-full transition-all duration-300 ease-in-out"
+              style={{ 
+                marginRight: isCollapsed ? 0 : width,
+                marginLeft: isLeftSidebarExpanded ? 0 : 0 // Left sidebar is handled by SidebarInset
+              }}
             >
               {/* Content Layer */}
-              <div className={`absolute inset-0 bg-white border-t ${activeTab ? 'z-30' : 'z-20'}`}>
+              <div className={`w-full h-[calc(100vh-4rem)] bg-white border-t ${activeTab ? 'z-30' : 'z-20'}`}>
                 {activeTab ? (
                   <div className="w-full h-full">
                     <SmartFileRenderer file={activeTab.file} />
@@ -579,6 +587,16 @@ export default function Page() {
             </div> {/* Closes Gyst AI sidebar container */}
           </div> {/* Closes the main content wrapper <div className="w-full h-full flex"> */}
         </SidebarInset>
+    </>
+  )
+}
+
+// Main page component that provides the SidebarProvider context
+export default function Page() {
+  return (
+    <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
+      <SidebarProvider>
+        <DashboardContent />
       </SidebarProvider>
     </div>
   )
