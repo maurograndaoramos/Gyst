@@ -562,7 +562,7 @@ class PatternRecognitionService:
             return f"Pattern analysis completed with {len(tags)} identified patterns and insights."
 
     def _validate_file_path(self, document_path: str) -> str:
-        """Validate and construct full file path."""
+        """Validate and construct full file path using enhanced path resolution."""
         # Ensure the path is relative and within upload directory
         if os.path.isabs(document_path):
             raise ValueError("Absolute paths are not allowed")
@@ -570,15 +570,43 @@ class PatternRecognitionService:
         if ".." in document_path:
             raise ValueError("Directory traversal is not allowed")
 
-        # Construct full path
-        full_path = self.upload_base_dir / document_path
-
-        # Check if file exists
-        if not full_path.exists():
-            raise FileNotFoundError(f"Document not found: {document_path}")
-
-        if not full_path.is_file():
-            raise ValueError(f"Path is not a file: {document_path}")
+        logger.info(f"Pattern recognition service validating file path: {document_path}")
+        
+        # Try multiple possible path combinations - prioritize frontend structure (same as other services)
+        possible_paths = [
+            # Frontend context paths (most likely for document analysis)
+            Path().cwd() / "frontend" / "uploads" / document_path,
+            Path("./frontend/uploads") / document_path,
+            Path("../frontend/uploads") / document_path,
+            
+            # Backend context paths (fallback)
+            self.upload_base_dir / document_path,
+        ]
+        
+        # Find the first valid path with detailed logging
+        for i, full_path in enumerate(possible_paths):
+            try:
+                absolute_path = full_path.resolve()
+                logger.debug(f"Pattern recognition service trying path {i+1}/{len(possible_paths)}: {absolute_path}")
+                
+                if absolute_path.exists() and absolute_path.is_file():
+                    logger.info(f"✓ Pattern recognition service found document at: {absolute_path}")
+                    return str(absolute_path)
+                else:
+                    logger.debug(f"  Path exists: {absolute_path.exists()}, Is file: {absolute_path.is_file() if absolute_path.exists() else 'N/A'}")
+                    
+            except Exception as e:
+                logger.debug(f"  Path resolution failed: {e}")
+                continue
+        
+        # If no path found, log detailed debugging information
+        logger.error(f"✗ Pattern recognition service document not found: {document_path}")
+        
+        # Create more helpful error message
+        attempted_paths = [str(p.resolve()) for p in possible_paths]
+        logger.error(f"Pattern recognition service attempted paths: {attempted_paths}")
+        
+        raise FileNotFoundError(f"Document not found: {document_path}. Tried {len(possible_paths)} possible locations.")
 
         return str(full_path)
 
