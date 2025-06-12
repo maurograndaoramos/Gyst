@@ -124,9 +124,10 @@ class ChatService:
             backstory="""You are an intelligent AI assistant specialized in analyzing documents and 
             having natural conversations. You excel at understanding user intent, retrieving relevant 
             information from documents, and providing clear, helpful responses. You maintain conversation 
-            context and can handle follow-up questions effectively.""",
+            context and can handle follow-up questions effectively. You work independently and make 
+            decisions autonomously without needing to consult other agents for simple questions.""",
             verbose=True,
-            allow_delegation=True,
+            allow_delegation=False,
             tools=tools,
             memory=True,
             respect_context_window=True,
@@ -241,7 +242,7 @@ class ChatService:
         return crew
     
     def _validate_file_path(self, document_path: str) -> str:
-        """Validate and construct full file path."""
+        """Validate and construct full file path with enhanced frontend-first resolution."""
         # Ensure the path is relative and within upload directory
         if os.path.isabs(document_path):
             raise ValueError("Absolute paths are not allowed")
@@ -249,33 +250,44 @@ class ChatService:
         if '..' in document_path:
             raise ValueError("Directory traversal is not allowed")
         
-        # Try multiple possible path combinations for frontend upload structure
+        logger.info(f"Resolving document path: {document_path}")
+        
+        # Try multiple possible path combinations - prioritize frontend structure
         possible_paths = [
-            # Direct path from backend uploads
-            self.upload_base_dir / document_path,
-            # Frontend uploads structure
+            # Frontend context paths (most likely for chat service)
+            Path().cwd() / "frontend" / "uploads" / document_path,
             Path("./frontend/uploads") / document_path,
-            # Alternative frontend structure
             Path("../frontend/uploads") / document_path,
-            # Current working directory frontend uploads
-            Path().cwd() / "frontend" / "uploads" / document_path
+            
+            # Backend context paths (fallback)
+            self.upload_base_dir / document_path,
         ]
         
-        # Find the first valid path
-        for full_path in possible_paths:
+        # Find the first valid path with detailed logging
+        for i, full_path in enumerate(possible_paths):
             try:
-                if full_path.exists() and full_path.is_file():
-                    logger.info(f"Found document at: {full_path}")
-                    return str(full_path.resolve())
+                absolute_path = full_path.resolve()
+                logger.debug(f"Trying path {i+1}/{len(possible_paths)}: {absolute_path}")
+                
+                if absolute_path.exists() and absolute_path.is_file():
+                    logger.info(f"✓ Document found at: {absolute_path}")
+                    return str(absolute_path)
+                else:
+                    logger.debug(f"  Path exists: {absolute_path.exists()}, Is file: {absolute_path.is_file() if absolute_path.exists() else 'N/A'}")
+                    
             except Exception as e:
-                logger.debug(f"Path {full_path} invalid: {e}")
+                logger.debug(f"  Path resolution failed: {e}")
                 continue
         
-        # If no path found, log available directories for debugging
-        logger.warning(f"Document not found: {document_path}")
+        # If no path found, log detailed debugging information
+        logger.error(f"✗ Document not found: {document_path}")
         self._log_available_upload_directories()
         
-        raise FileNotFoundError(f"Document not found: {document_path}")
+        # Create more helpful error message
+        attempted_paths = [str(p.resolve()) for p in possible_paths]
+        logger.error(f"Attempted paths: {attempted_paths}")
+        
+        raise FileNotFoundError(f"Document not found: {document_path}. Tried {len(possible_paths)} possible locations.")
     
     def _log_available_upload_directories(self):
         """Log available upload directories for debugging."""
