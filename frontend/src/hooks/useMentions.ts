@@ -169,14 +169,14 @@ export function useMentions({
     }
   }, [organizationId, state.results.tags]);
 
-  // Select a mention
-  const selectMention = useCallback(async (mention?: Mention) => {
+  // Select a mention - now returns the selected mention info for inline insertion
+  const selectMention = useCallback(async (mention?: Mention): Promise<{ selectedMention: Mention; newAttachments: AttachedDocument[] } | null> => {
     const allMentions = getAllMentions();
     const selectedMention = mention || allMentions[state.selectedIndex];
     
     if (!selectedMention || state.attachedDocuments.length >= maxAttachments) {
       closeMentions();
-      return;
+      return null;
     }
 
     let newAttachments: AttachedDocument[] = [];
@@ -213,6 +213,7 @@ export function useMentions({
     }
 
     closeMentions();
+    return { selectedMention, newAttachments };
   }, [getAllMentions, state.selectedIndex, state.attachedDocuments, maxAttachments, closeMentions, getDocumentsByTag, onAttachmentsChange]);
 
   // Remove attachment
