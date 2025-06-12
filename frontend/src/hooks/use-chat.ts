@@ -156,8 +156,8 @@ export function useChat(options: UseChatOptions) {
     }
   }, [options.organizationId, options.userId, options.preserveHistory, options.autoInitialize]);
 
-  // Send message function
-  const sendMessage = useCallback(async (message: string): Promise<void> => {
+  // Send message function with attachments support
+  const sendMessage = useCallback(async (message: string, attachments?: import('@/types/mentions').AttachedDocument[]): Promise<void> => {
     if (!message.trim() || state.isLoading || state.isTyping) {
       return;
     }
@@ -177,6 +177,7 @@ export function useChat(options: UseChatOptions) {
       sender: 'user',
       timestamp: new Date(),
       status: 'delivered',
+      attachments: attachments || [],
     };
 
     // Add user message immediately
@@ -203,8 +204,16 @@ export function useChat(options: UseChatOptions) {
         preserveHistory: true,
       };
 
-      // Prepare document paths
-      const documentPaths = chatService.prepareDocumentPaths(options.documentContext);
+      // Prepare document paths from attachments and existing context
+      let documentPaths = chatService.prepareDocumentPaths(options.documentContext);
+      
+      // Add attachment file paths
+      if (attachments && attachments.length > 0) {
+        const attachmentPaths = attachments
+          .map(doc => doc.filePath)
+          .filter((path): path is string => path !== null);
+        documentPaths = [...documentPaths, ...attachmentPaths];
+      }
 
       // Send message to backend
       const response = await chatService.sendMessage(

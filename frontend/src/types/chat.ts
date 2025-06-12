@@ -154,6 +154,7 @@ export interface FrontendMessage {
   conversationId?: string;
   agentProcess?: AgentStep[];      // Agent thinking steps
   rawResponse?: string;            // For debugging/fallback
+  attachments?: import('@/types/mentions').AttachedDocument[]; // Document attachments
 }
 
 // Chat hook state interface

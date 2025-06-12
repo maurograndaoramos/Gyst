@@ -222,30 +222,54 @@ class DocumentToolFactory:
         return info
 
     def _resolve_file_path(self, file_path: str) -> Path:
-        """Resolve file path to the correct location using settings configuration."""
+        """Resolve file path to the correct location using enhanced path resolution."""
         path = Path(file_path)
 
         # If it's already an absolute path, use it as-is
         if path.is_absolute():
             return path
 
-        # For relative paths, resolve using the configured upload base directory
-        # This now uses the settings which point to the correct frontend/uploads directory
-        upload_base_dir = Path(self.settings.upload_base_dir).resolve()
+        # Ensure the path is relative and within upload directory
+        if '..' in str(path):
+            raise ValueError("Directory traversal is not allowed")
 
-        logger.debug(f"Tool factory using upload base dir: {upload_base_dir}")
-        logger.debug(f"Upload base dir exists: {upload_base_dir.exists()}")
-
-        # If path starts with "uploads/", remove it since we're pointing to the uploads directory
-        if str(path).startswith("uploads/"):
-            relative_path = str(path)[8:]  # Remove "uploads/" prefix
-            resolved_path = upload_base_dir / relative_path
-        else:
-            resolved_path = upload_base_dir / path
-
-        logger.debug(f"Resolved path: {file_path} -> {resolved_path}")
-        logger.debug(f"Resolved path exists: {resolved_path.exists()}")
-        return resolved_path
+        logger.debug(f"Tool factory resolving document path: {file_path}")
+        
+        # Try multiple possible path combinations - prioritize frontend structure (same as chat service)
+        possible_paths = [
+            # Frontend context paths (most likely for document analysis)
+            Path().cwd() / "frontend" / "uploads" / file_path,
+            Path("./frontend/uploads") / file_path,
+            Path("../frontend/uploads") / file_path,
+            
+            # Backend context paths (fallback)
+            Path(self.settings.upload_base_dir) / file_path,
+        ]
+        
+        # Find the first valid path with detailed logging
+        for i, full_path in enumerate(possible_paths):
+            try:
+                absolute_path = full_path.resolve()
+                logger.debug(f"Tool factory trying path {i+1}/{len(possible_paths)}: {absolute_path}")
+                
+                if absolute_path.exists() and absolute_path.is_file():
+                    logger.info(f"✓ Tool factory found document at: {absolute_path}")
+                    return absolute_path
+                else:
+                    logger.debug(f"  Path exists: {absolute_path.exists()}, Is file: {absolute_path.is_file() if absolute_path.exists() else 'N/A'}")
+                    
+            except Exception as e:
+                logger.debug(f"  Path resolution failed: {e}")
+                continue
+        
+        # If no path found, log detailed debugging information
+        logger.error(f"✗ Tool factory document not found: {file_path}")
+        
+        # Create more helpful error message
+        attempted_paths = [str(p.resolve()) for p in possible_paths]
+        logger.error(f"Tool factory attempted paths: {attempted_paths}")
+        
+        raise FileNotFoundError(f"Document not found: {file_path}. Tried {len(possible_paths)} possible locations.")
 
     async def validate_file_access(self, file_path: str) -> bool:
         """Validate that a file can be accessed and processed."""
