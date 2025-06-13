@@ -7,6 +7,7 @@ import { validateFile, sanitizeFilename } from '@/lib/utils/file-validation'
 import { FileStorageService } from '@/lib/utils/file-storage'
 import { db } from '@/lib/db'
 import { documents } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { MAX_FILE_SIZE, type UploadResponse } from '@/lib/types/upload'
 import { DocumentAnalysisService } from '@/lib/services/document-analysis-service'
 
@@ -56,13 +57,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     // Create temporary file for validation
     const timestamp = Date.now()
     const random = Math.random().toString(36).substring(2, 15)
-    const tempFileName = `temp_${timestamp}_${random}.${file.name.split('.').pop()}`
+    const fileExtension = file.name ? file.name.split('.').pop() : 'tmp'
+    const tempFileName = `temp_${timestamp}_${random}.${fileExtension}`
     const tempDir = process.env.TEMP_DIR || './uploads/temp'
     await fileStorage.ensureDirectoryExists(tempDir)
     tempFilePath = `${tempDir}/${tempFileName}`
 
     // Write file to temp location
-    const buffer = Buffer.from(await file.arrayBuffer())
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
     await fs.writeFile(tempFilePath, buffer)
 
     // Create uploadedFile object for compatibility
@@ -109,28 +112,61 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     // Clear temp file path since file has been moved
     tempFilePath = undefined
 
-    // 7. Create database record
+    // 7. Create database record with content for text-based files
     const sanitizedOriginalName = sanitizeFilename(uploadedFile.originalFilename || 'unknown')
     
+    // Read content for text-based files
+    let fileContent: string | null = null
+    const mimeType = validation.detectedMimeType || uploadedFile.mimetype
+    if (mimeType && (
+      mimeType.startsWith('text/') ||
+      mimeType === 'application/json' ||
+      mimeType === 'text/markdown'
+    )) {
+      try {
+        fileContent = buffer.toString('utf-8')
+        console.log(`Stored content for ${sanitizedOriginalName}, length: ${fileContent.length}`)
+      } catch (error) {
+        console.warn(`Failed to read content for ${sanitizedOriginalName}:`, error)
+      }
+    }
+
     const [document] = await db.insert(documents).values({
       organizationId: context.organizationId,
       title: sanitizedOriginalName,
       originalFilename: sanitizedOriginalName,
       filePath: filePath,
-      mimeType: validation.detectedMimeType || uploadedFile.mimetype,
+      mimeType: mimeType,
       size: uploadedFile.size,
+      content: fileContent,
       createdBy: context.userId,
-      projectId: projectId || null
+      projectId: projectId || null,
+      analysisStatus: 'analyzing'
     }).returning()
 
-    // 8. Trigger AI analysis
-    try {
-      await documentAnalysisService.analyzeDocument(document.id);
-    } catch (analysisError) {
-      console.error('Document analysis failed:', analysisError);
-      // Continue with the upload response even if analysis fails
-      // The document is still usable, just without AI tags
-    }
+    // 8. Trigger AI analysis asynchronously
+    documentAnalysisService.analyzeDocument(document.id)
+      .then(async () => {
+        // Update status to completed on success
+        await db.update(documents)
+          .set({
+            analysisStatus: 'completed',
+            analysisError: null,
+            updatedAt: new Date()
+          })
+          .where(eq(documents.id, document.id))
+      })
+      .catch(async (error) => {
+        // Update status to failed on error
+        console.error('Document analysis failed:', error)
+        await db.update(documents)
+          .set({
+            analysisStatus: 'failed',
+            analysisError: error.message || 'Analysis failed',
+            updatedAt: new Date()
+          })
+          .where(eq(documents.id, document.id))
+      })
 
     // 9. Success response
     return NextResponse.json({

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=/app/db.sqlite
+      - UPLOAD_DIR=/app/uploads
+      - TEMP_DIR=/app/uploads/temp
+      - PYTHON_SERVICE_URL=http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ./frontend/db.sqlite:/app/db.sqlite
+      - ./frontend/uploads:/app/uploads
+    depends_on:
+      - backend
+    command: >
+      bash -c "npm install && npm run dev"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=false
+      - UPLOAD_BASE_DIR=/backend/uploads
+      - RAG_EMBEDDING_CACHE_DB_PATH=/backend/data/embedding_cache.db
+    volumes:
+      - ./frontend/uploads:/backend/uploads
+      - ./backend/db:/backend/db
+      - ./backend/data:/backend/data
+    command: >
+      bash -c "uv venv .venv && 
+      source .venv/bin/activate && 
+      uv pip install . && 
+      python3 main.py"
+    restart: unless-stopped
+
+volumes:
+  uploads:
+  db:

@@ -78,8 +78,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'File not available' }, { status: 404 })
     }
 
-    // Security: Validate file path and check if file exists
-    const filePath = fileService.getSecureFilePath(doc.filePath, organizationId)
+    // Normalize path separators and validate file path
+    const normalizedPath = doc.filePath.replace(/\\/g, '/')
+    const filePath = fileService.getSecureFilePath(normalizedPath, organizationId)
     const fileExists = await fileService.fileExists(filePath)
     
     if (!fileExists) {

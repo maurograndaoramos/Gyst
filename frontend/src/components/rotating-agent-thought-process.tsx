@@ -73,51 +73,61 @@ export default function RotatingAgentThoughtProcess({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Create hardcoded agent steps when processing and no real steps available
+  const hardcodedSteps = [
+    {
+      agent_name: "Document Context Specialist",
+      agent_role: "Document Analyst",
+      thought_process: "Processing and analyzing documents for relevant information, extracting key insights, and scoring relevance...",
+      status: isProcessing ? "processing" : "completed",
+      timestamp: new Date().toISOString()
+    },
+    {
+      agent_name: "AI Assistant", 
+      agent_role: "Response Generator",
+      thought_process: "Crafting comprehensive response based on document insights and user requirements...",
+      status: isProcessing ? "processing" : "completed", 
+      timestamp: new Date().toISOString()
+    }
+  ];
+
   // Rotate through steps
   useEffect(() => {
-    if (!agentSteps || agentSteps.length <= 1) return;
+    const stepsToRotate = (!agentSteps || agentSteps.length === 0) && isProcessing 
+      ? hardcodedSteps 
+      : agentSteps;
+      
+    if (!stepsToRotate || stepsToRotate.length <= 1) return;
 
     const timer = setInterval(() => {
       setIsAnimating(true);
       
       // After animation starts, change the step
       setTimeout(() => {
-        setCurrentStepIndex((prev) => (prev + 1) % agentSteps.length);
+        setCurrentStepIndex((prev) => (prev + 1) % stepsToRotate.length);
         setIsAnimating(false);
       }, 150); // Half of transition duration
       
     }, rotationInterval);
 
     return () => clearInterval(timer);
-  }, [agentSteps, rotationInterval]);
+  }, [agentSteps, isProcessing, rotationInterval, hardcodedSteps]);
 
-  // Show processing state when no steps
-  if (!agentSteps || agentSteps.length === 0) {
-    if (isProcessing) {
-      return (
-        <Card className="w-full bg-gray-50 border-gray-200">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-              <div>
-                <CardTitle className="text-base">AI Processing</CardTitle>
-                <CardDescription className="text-sm">
-                  Analyzing your request and preparing response...
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-      );
-    }
+  // Use hardcoded steps when processing and no real steps available
+  const stepsToUse = (!agentSteps || agentSteps.length === 0) && isProcessing 
+    ? hardcodedSteps 
+    : agentSteps;
+
+  // If no steps and not processing, return null
+  if (!stepsToUse || stepsToUse.length === 0) {
     return null;
   }
 
-  const currentStep = agentSteps[currentStepIndex];
-  const totalSteps = agentSteps.length;
+  const currentStep = stepsToUse[currentStepIndex];
+  const totalSteps = stepsToUse.length;
   
   // Check if all steps are completed (independent of current rotation)
-  const allStepsCompleted = agentSteps.every(step => 
+  const allStepsCompleted = stepsToUse.every(step => 
     step.status.toLowerCase() === 'completed'
   );
 
@@ -136,13 +146,13 @@ export default function RotatingAgentThoughtProcess({
               {currentStepIndex + 1} of {totalSteps}
             </span>
             <div className="flex gap-1">
-              {agentSteps.map((_, index) => (
+              {stepsToUse.map((_, index) => (
                 <div
                   key={index}
                   className={`w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
                     index === currentStepIndex 
                       ? 'bg-indigo-500' 
-                      : allStepsCompleted || agentSteps[index].status.toLowerCase() === 'completed'
+                      : allStepsCompleted || stepsToUse[index].status.toLowerCase() === 'completed'
                         ? 'bg-green-400' 
                         : 'bg-gray-300'
                   }`}

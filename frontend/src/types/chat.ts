@@ -26,6 +26,8 @@ export interface DocumentSource {
 export interface ChatRequest {
   message: string;
   conversation_id?: string;
+  organization_id?: string;
+  user_id?: string;
   document_paths?: string[];
   max_documents?: number; // 1-20, default 5
   include_sources?: boolean; // default true
@@ -154,6 +156,7 @@ export interface FrontendMessage {
   conversationId?: string;
   agentProcess?: AgentStep[];      // Agent thinking steps
   rawResponse?: string;            // For debugging/fallback
+  attachments?: import('@/types/mentions').AttachedDocument[]; // Document attachments
 }
 
 // Chat hook state interface

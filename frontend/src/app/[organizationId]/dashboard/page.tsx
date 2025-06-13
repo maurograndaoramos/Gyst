@@ -1,8 +1,8 @@
 'use client'
 import * as React from "react"
-import { FileDisplay } from "@/components/ui/fileDisplay";
-import { AppSidebar } from "@/components/app-sidebar"
-import FileValidator, { type FileWithPreview } from "@/components/FileValidator"; 
+import { SmartFileRenderer } from "@/components/smart-file-renderer";
+import { EnhancedAppSidebar } from "@/components/EnhancedAppSidebar"
+import FileValidator, { type FileWithPreview } from "@/components/FileValidator";
 import UploadProgressModal, { type FileProgress } from "@/components/UploadProgressModal";
 import { useAuth } from "@/hooks/use-auth";
 import { useParams } from "next/navigation";
@@ -14,16 +14,19 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronRight, File } from "lucide-react"
 import ChatInterface from "@/components/chatInterface";
 import { LoadingSpinner } from "@/components/auth/loading-spinner"
+import useFileValidation from "@/hooks/useFileValidation";
 
 import type { FileData } from "@/types/file";
 
-export default function Page() {
+// Main dashboard content component that has access to sidebar context
+function DashboardContent() {
   const [width, setWidth] = useState(450);
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -49,6 +52,72 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
   const isAdmin = role === 'admin';
+
+  // Access sidebar state
+  const { state: leftSidebarState } = useSidebar();
+  const isLeftSidebarExpanded = leftSidebarState === "expanded";
+
+  // Initialize file validation hook at component level
+  const { validate: validateFile } = useFileValidation();
+
+  // Handle quick upload from sidebar with proper validation
+  const handleQuickUpload = async () => {
+    // Create a file input element and trigger it
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.txt,.md,.pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.gif';
+    input.onchange = async (e) => {
+      const selectedFiles = Array.from((e.target as HTMLInputElement).files || []);
+      if (selectedFiles.length === 0) return;
+
+      // Use the same validation logic as FileValidator
+      const validatedFiles: FileWithPreview[] = [];
+
+      for (const file of selectedFiles) {
+        try {
+          const validationResult = await validateFile(file);
+          
+          const fileWithPreview: FileWithPreview = {
+            ...file,
+            preview: URL.createObjectURL(file),
+            isValid: validationResult.isValid,
+            errors: validationResult.errors || []
+          };
+
+          validatedFiles.push(fileWithPreview);
+        } catch (error) {
+          console.error('File validation error:', error);
+          
+          // Add file with errors if validation fails
+          const fileWithPreview: FileWithPreview = {
+            ...file,
+            preview: URL.createObjectURL(file),
+            isValid: false,
+            errors: [error instanceof Error ? error.message : 'Validation failed']
+          };
+
+          validatedFiles.push(fileWithPreview);
+        }
+      }
+
+      // Only process valid files
+      const validFiles = validatedFiles.filter(file => file.isValid);
+      
+      if (validFiles.length > 0) {
+        handleFilesValidated(validFiles);
+      }
+
+      // Show validation errors for invalid files
+      const invalidFiles = validatedFiles.filter(file => !file.isValid);
+      if (invalidFiles.length > 0) {
+        console.warn('Some files failed validation:', invalidFiles.map(f => ({ name: f.name, errors: f.errors })));
+        // TODO: Show toast notification for invalid files
+        alert(`${invalidFiles.length} file(s) failed validation. Check console for details.`);
+      }
+    };
+    input.click();
+  };
 
   const handleFilesReorder = async (reorderedFiles: FileData[]) => {
     if (!isAdmin) return;
@@ -321,11 +390,12 @@ export default function Page() {
     if (!fileToRetry?.originalFile) return;
 
     // Create a new FileWithPreview from the original file
-    const fileWithPreview = Object.assign(fileToRetry.originalFile, {
+    const fileWithPreview: FileWithPreview = {
+      ...fileToRetry.originalFile,
       preview: URL.createObjectURL(fileToRetry.originalFile),
       isValid: true,
       errors: []
-    }) as FileWithPreview;
+    };
 
     // Create a new upload entry and start upload
     handleFilesValidated([fileWithPreview]);
@@ -344,17 +414,18 @@ export default function Page() {
   };
 
   return (
-    <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
-      <SidebarProvider>
-          <AppSidebar
-            onFileSelect={handleFileSelect}
-            onFilesReorder={handleFilesReorder}
-            organizationId={organizationId}
-            files={files}
-            loading={loading || isReordering}
-        />
-        <SidebarInset>
-          <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between bg-background">
+    <>
+      <EnhancedAppSidebar
+        onFileSelect={handleFileSelect}
+        onFilesReorder={handleFilesReorder}
+        onFileListRefresh={fetchFiles}
+        organizationId={organizationId}
+        files={files}
+        loading={loading || isReordering}
+        isAdmin={isAdmin}
+      />
+      <SidebarInset>
+          <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between bg-background border-b border-border shadow-sm">
             <div className="flex items-center gap-2 min-w-0 flex-1 h-16 px-4 mr-4">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
@@ -412,32 +483,41 @@ export default function Page() {
           </header>
           <div className="w-full h-full flex">
             <div 
-              className="flex-1 h-full"
-              style={{ marginRight: isCollapsed ? 0 : width }}
+              className="flex-1 h-full transition-all duration-300 ease-in-out"
+              style={{ 
+                marginRight: isCollapsed ? 0 : width,
+                marginLeft: isLeftSidebarExpanded ? 0 : 0 // Left sidebar is handled by SidebarInset
+              }}
             >
               {/* Content Layer */}
-              <div className={`absolute inset-0 bg-white border-t ${activeTab ? 'z-30' : 'z-20'}`}>
-                {/* Admin Upload Area */}
-                {isAdmin && !activeTab && (
-                  <div className="w-full h-[calc(100vh-4rem)] flex items-center justify-center z-10">
-                    <FileValidator 
-                      onFilesReadyForUpload={handleFilesValidated}
-                      customClasses={{
-                        root: "bg-transparent shadow-none border-none",
-                        dropzone: "border-2 border-dashed border-gray-300 hover:border-primary transition-colors hover:bg-black/5",
-                      }}
-                    />
-                  </div>
-                )}
+              <div className={`w-full h-[calc(100vh-4rem)] bg-white border-t ${activeTab ? 'z-30' : 'z-20'}`}>
                 {activeTab ? (
                   <div className="w-full h-full">
-                    <div className="p-4">
-                      <FileDisplay content={activeTab.file.content || ''} />
-                    </div>
+                    <SmartFileRenderer file={activeTab.file} />
                   </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-muted-foreground">Select a file to view its content</span>
+                  <div className="w-full h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-8 space-y-8">
+                    <div className="text-center space-y-4">
+                      <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                        <File className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No file selected</h3>
+                        <p className="text-muted-foreground">Select a file from the sidebar to view its content</p>
+                      </div>
+                    </div>
+                    
+                    {isAdmin && (
+                      <div className="w-full max-w-md">
+                        <FileValidator 
+                          onFilesReadyForUpload={handleFilesValidated}
+                          customClasses={{
+                            root: "bg-transparent shadow-none border-none",
+                            dropzone: "border-2 border-dashed border-gray-300 hover:border-primary transition-colors hover:bg-gray-50 p-6 rounded-lg",
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -507,6 +587,16 @@ export default function Page() {
             </div> {/* Closes Gyst AI sidebar container */}
           </div> {/* Closes the main content wrapper <div className="w-full h-full flex"> */}
         </SidebarInset>
+    </>
+  )
+}
+
+// Main page component that provides the SidebarProvider context
+export default function Page() {
+  return (
+    <div className="max-h-screen overflow-y-hidden overflow-x-hidden">
+      <SidebarProvider>
+        <DashboardContent />
       </SidebarProvider>
     </div>
   )

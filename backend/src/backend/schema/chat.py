@@ -39,6 +39,8 @@ class ChatRequest(BaseModel):
     """Request model for chat endpoint."""
     message: str = Field(..., description="User message", min_length=1, max_length=10000)
     conversation_id: Optional[str] = Field(None, description="Conversation identifier for memory")
+    organization_id: Optional[str] = Field(None, description="Organization identifier for document access")
+    user_id: Optional[str] = Field(None, description="User identifier for access control")
     document_paths: Optional[List[str]] = Field(
         default_factory=list, 
         description="List of document paths to include in context"

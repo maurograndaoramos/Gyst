@@ -5,7 +5,7 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional, AsyncGenerator, Tuple
 from pathlib import Path
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 
 from crewai import Agent, Task, Crew
 from crewai.memory import LongTermMemory
@@ -23,6 +23,8 @@ from ..processing import get_document_tool_factory
 from ..selection import get_tag_based_selector
 from ..error_handling.circuit_breaker import get_circuit_breaker_manager, CircuitBreakerConfig
 from ..memory import get_conversation_memory_manager
+from ..document_reference_extractor import get_document_reference_extractor
+from ..document_resolver import get_document_resolver
 from .crewai_service import get_document_analysis_service
 from .crewai_execution_listener import create_execution_listener
 
@@ -58,6 +60,10 @@ class ChatService:
         self.tag_selector = get_tag_based_selector(max_documents=20)
         self.document_service = get_document_analysis_service()
         
+        # Initialize document reference components
+        self.reference_extractor = get_document_reference_extractor()
+        self.document_resolver = get_document_resolver()
+        
         # Initialize enhanced conversation memory manager
         self.memory_manager = get_conversation_memory_manager()
         
@@ -79,7 +85,7 @@ class ChatService:
         self.active_conversations: Dict[str, ConversationContext] = {}
         
         # Service startup time
-        self.startup_time = datetime.now(UTC)
+        self.startup_time = datetime.now(timezone.utc)
         
         logger.info("Chat service initialized successfully")
     
@@ -124,9 +130,17 @@ class ChatService:
             backstory="""You are an intelligent AI assistant specialized in analyzing documents and 
             having natural conversations. You excel at understanding user intent, retrieving relevant 
             information from documents, and providing clear, helpful responses. You maintain conversation 
-            context and can handle follow-up questions effectively.""",
+            context and can handle follow-up questions effectively. You work independently and make 
+            decisions autonomously without needing to consult other agents for simple questions.
+            
+            IMPORTANT DOCUMENT HANDLING INSTRUCTION:
+            When a document is referenced with @[filename], you MUST ONLY use the actual content from the file.
+            NEVER invent, fabricate, or hallucinate information not present in the document.
+            If you cannot access a file or it's empty, explicitly state: "I cannot access the contents of [filename]."
+            Always quote specific sections from the document to support your analysis.
+            """,
             verbose=True,
-            allow_delegation=True,
+            allow_delegation=False,
             tools=tools,
             memory=True,
             respect_context_window=True,
@@ -140,7 +154,16 @@ class ChatService:
             backstory="""You are an expert at understanding document content and determining 
             its relevance to user queries. You specialize in extracting key information, 
             identifying relevant excerpts, and scoring document relevance. You work closely 
-            with the AI Assistant to provide the best possible context for responses.""",
+            with the AI Assistant to provide the best possible context for responses.
+            
+            CRITICAL DOCUMENT HANDLING INSTRUCTIONS:
+            1. When analyzing documents, you MUST ONLY use the actual content from the referenced files.
+            2. NEVER invent, fabricate, or hallucinate information not present in the documents.
+            3. Always include direct quotes from the documents to support your findings.
+            4. If a document cannot be accessed or is empty, explicitly state this fact.
+            5. Your analysis must be based EXCLUSIVELY on the document's actual contents.
+            6. When quoting from documents, clearly indicate which document the quote comes from.
+            """,
             verbose=True,
             allow_delegation=False,
             tools=tools,
@@ -188,6 +211,8 @@ class ChatService:
             2. Extract relevant excerpts or key information
             3. Score the relevance of each document (0.0 to 1.0)
             4. Identify any specific sections or pages that are most pertinent
+            5. IMPORTANT: Include DIRECT QUOTES from the documents to support your analysis
+            6. NEVER invent or fabricate information not present in the documents
             
             Consider the conversation history:
             {history_context if history_context else 'No previous conversation'}
@@ -210,6 +235,8 @@ class ChatService:
             Guidelines:
             - Provide accurate, helpful information based on the available documents
             - Cite specific sources when referencing document content
+            - Include DIRECT QUOTES from documents when referencing their content
+            - NEVER invent or fabricate information not present in the documents
             - Maintain a natural, conversational tone
             - If documents don't contain relevant information, say so clearly
             - Suggest follow-up questions when appropriate
@@ -241,7 +268,7 @@ class ChatService:
         return crew
     
     def _validate_file_path(self, document_path: str) -> str:
-        """Validate and construct full file path."""
+        """Validate and construct full file path with enhanced frontend-first resolution."""
         # Ensure the path is relative and within upload directory
         if os.path.isabs(document_path):
             raise ValueError("Absolute paths are not allowed")
@@ -249,17 +276,67 @@ class ChatService:
         if '..' in document_path:
             raise ValueError("Directory traversal is not allowed")
         
-        # Construct full path
-        full_path = self.upload_base_dir / document_path
+        logger.info(f"Resolving document path: {document_path}")
         
-        # Check if file exists
-        if not full_path.exists():
-            raise FileNotFoundError(f"Document not found: {document_path}")
+        # Try multiple possible path combinations - prioritize frontend structure
+        possible_paths = [
+            # Frontend context paths (most likely for chat service)
+            Path().cwd() / "frontend" / "uploads" / document_path,
+            Path("./frontend/uploads") / document_path,
+            Path("../frontend/uploads") / document_path,
+            
+            # Backend context paths (fallback)
+            self.upload_base_dir / document_path,
+        ]
         
-        if not full_path.is_file():
-            raise ValueError(f"Path is not a file: {document_path}")
+        # Find the first valid path with detailed logging
+        for i, full_path in enumerate(possible_paths):
+            try:
+                absolute_path = full_path.resolve()
+                logger.debug(f"Trying path {i+1}/{len(possible_paths)}: {absolute_path}")
+                
+                if absolute_path.exists() and absolute_path.is_file():
+                    logger.info(f"✓ Document found at: {absolute_path}")
+                    return str(absolute_path)
+                else:
+                    logger.debug(f"  Path exists: {absolute_path.exists()}, Is file: {absolute_path.is_file() if absolute_path.exists() else 'N/A'}")
+                    
+            except Exception as e:
+                logger.debug(f"  Path resolution failed: {e}")
+                continue
         
-        return str(full_path)
+        # If no path found, log detailed debugging information
+        logger.error(f"✗ Document not found: {document_path}")
+        self._log_available_upload_directories()
+        
+        # Create more helpful error message
+        attempted_paths = [str(p.resolve()) for p in possible_paths]
+        logger.error(f"Attempted paths: {attempted_paths}")
+        
+        raise FileNotFoundError(f"Document not found: {document_path}. Tried {len(possible_paths)} possible locations.")
+    
+    def _log_available_upload_directories(self):
+        """Log available upload directories for debugging."""
+        try:
+            base_dirs_to_check = [
+                Path("./uploads"),
+                Path("./frontend/uploads"), 
+                Path("../frontend/uploads"),
+                Path().cwd() / "frontend" / "uploads"
+            ]
+            
+            for base_dir in base_dirs_to_check:
+                if base_dir.exists():
+                    logger.info(f"Available upload directory: {base_dir.resolve()}")
+                    # List first level subdirectories
+                    try:
+                        subdirs = [d.name for d in base_dir.iterdir() if d.is_dir()][:5]
+                        if subdirs:
+                            logger.info(f"  Subdirectories: {subdirs}")
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.debug(f"Error logging upload directories: {e}")
     
     def _extract_sources_from_result(self, result: Any, document_paths: List[str]) -> List[DocumentSource]:
         """Extract document sources from crew result."""
@@ -304,7 +381,7 @@ class ChatService:
                     agent_name="AI Assistant",
                     agent_role="Task Processing",
                     thought_process="Successfully processed your request and generated a response.",
-                    timestamp=datetime.now(UTC),
+                    timestamp=datetime.now(timezone.utc),
                     status="completed"
                 )
                 agent_steps = [fallback_step]
@@ -317,7 +394,7 @@ class ChatService:
                 agent_name="AI Assistant",
                 agent_role="General Assistant",
                 thought_process="Processing your request and generating a helpful response.",
-                timestamp=datetime.now(UTC),
+                timestamp=datetime.now(timezone.utc),
                 status="completed"
             )
             agent_steps = [fallback_step]
@@ -350,14 +427,47 @@ class ChatService:
         try:
             logger.info(f"Processing chat request for conversation {conversation_id}")
             
-            # Validate document paths
+            # Extract document references from message
+            extracted_filenames = self.reference_extractor.get_unique_filenames(request.message)
+            logger.info(f"Extracted document references: {list(extracted_filenames)}")
+            
+            # Get organization_id and user_id from request
+            organization_id = request.organization_id or 'default-org'
+            user_id = request.user_id or 'default-user'
+            
+            # Resolve document references to actual file paths
+            resolved_docs = await self.document_resolver.resolve_documents(
+                list(extracted_filenames), 
+                organization_id, 
+                user_id
+            )
+            
+            # Get validated paths from resolved documents and explicit request paths
             validated_paths = []
+            
+            # Add resolved document paths
+            for filename, doc in resolved_docs.items():
+                try:
+                    # Document paths from database are already absolute
+                    validated_paths.append(doc.file_path)
+                    logger.info(f"Added resolved document: {filename} -> {doc.file_path}")
+                except Exception as e:
+                    logger.warning(f"Error adding resolved document {filename}: {e}")
+            
+            # Add explicit document paths from request (for backward compatibility)
             for doc_path in request.document_paths:
                 try:
-                    self._validate_file_path(doc_path)
-                    validated_paths.append(doc_path)
+                    full_path = self._validate_file_path(doc_path)
+                    if full_path not in validated_paths:  # Avoid duplicates
+                        validated_paths.append(full_path)
                 except Exception as e:
                     logger.warning(f"Invalid document path {doc_path}: {e}")
+            
+            # Generate suggestions for unresolved documents
+            unresolved_filenames = extracted_filenames - set(resolved_docs.keys())
+            if unresolved_filenames:
+                logger.warning(f"Could not resolve documents: {list(unresolved_filenames)}")
+                # TODO: Add suggestions to response for better user experience
             
             # Create user message
             user_message = ChatMessage(
@@ -376,7 +486,6 @@ class ChatService:
             )
             
             # Get conversation history from enhanced memory
-            conversation_state = await self.memory_manager.get_conversation_state(conversation_id)
             conversation_history = self._get_enhanced_conversation_history(
                 conversation_id, 
                 memory_context
@@ -474,7 +583,7 @@ class ChatService:
         if conversation_id in self.active_conversations:
             context = self.active_conversations[conversation_id]
             context.message_history.extend(new_messages)
-            context.last_activity = datetime.now(UTC)
+            context.last_activity = datetime.now(timezone.utc)
             context.document_context.extend(document_paths)
         else:
             # Create new conversation context
@@ -482,7 +591,7 @@ class ChatService:
                 conversation_id=conversation_id,
                 message_history=new_messages,
                 document_context=document_paths,
-                last_activity=datetime.now(UTC),
+                last_activity=datetime.now(timezone.utc),
                 metadata={}
             )
     
@@ -556,6 +665,8 @@ class ChatService:
             2. Extract relevant excerpts or key information
             3. Score the relevance of each document (0.0 to 1.0)
             4. Identify any specific sections or pages that are most pertinent
+            5. IMPORTANT: Include DIRECT QUOTES from the documents to support your analysis
+            6. NEVER invent or fabricate information not present in the documents
             
             Consider the conversation history:
             {history_context if history_context else 'No previous conversation'}
@@ -582,6 +693,8 @@ class ChatService:
             Guidelines:
             - Provide accurate, helpful information based on the available documents
             - Cite specific sources when referencing document content
+            - Include DIRECT QUOTES from documents when referencing their content
+            - NEVER invent or fabricate information not present in the documents
             - Maintain a natural, conversational tone
             - Consider the conversation topics and previous discussions
             - If documents don't contain relevant information, say so clearly
@@ -708,7 +821,7 @@ class ChatService:
                         'agent_name': 'AI Assistant',
                         'agent_role': 'Processing',
                         'thought_process': line,
-                        'timestamp': datetime.now(UTC) - timedelta(seconds=len(execution_steps) * 2)
+                        'timestamp': datetime.now(timezone.utc) - timedelta(seconds=len(execution_steps) * 2)
                     }
                 elif current_step:
                     # Append to current step
@@ -724,7 +837,7 @@ class ChatService:
                     'agent_name': 'AI Assistant',
                     'agent_role': 'General Assistant',
                     'thought_process': f"Processing your request: {result_str[:200]}...",
-                    'timestamp': datetime.now(UTC)
+                    'timestamp': datetime.now(timezone.utc)
                 })
                 
         except Exception as e:
@@ -734,7 +847,7 @@ class ChatService:
                 'agent_name': 'AI Assistant',
                 'agent_role': 'General Assistant',
                 'thought_process': "Processing your request...",
-                'timestamp': datetime.now(UTC)
+                'timestamp': datetime.now(timezone.utc)
             }]
         
         return execution_steps
@@ -768,7 +881,7 @@ class ChatService:
                             agent_name=agent_name,
                             agent_role=agent_role,
                             thought_process=self._clean_agent_thought_process(thought_process),
-                            timestamp=datetime.now(UTC) - timedelta(seconds=(len(crew_result.tasks_output) - i) * 2),
+                            timestamp=datetime.now(timezone.utc) - timedelta(seconds=(len(crew_result.tasks_output) - i) * 2),
                             status="completed"
                         )
                         agent_steps.append(step)
@@ -784,14 +897,14 @@ class ChatService:
                         agent_name="Document Context Specialist",
                         agent_role="Context Analysis",
                         thought_process="Analyzed available documents and extracted relevant context for the user's query.",
-                    timestamp=datetime.now(UTC) - timedelta(seconds=4),
+                    timestamp=datetime.now(timezone.utc) - timedelta(seconds=4),
                     status="completed"
                     ),
                     AgentStep(
                         agent_name="AI Assistant",
                         agent_role="Response Generation",
                         thought_process="Generated a comprehensive response based on the context analysis and user requirements.",
-                    timestamp=datetime.now(UTC) - timedelta(seconds=2),
+                    timestamp=datetime.now(timezone.utc) - timedelta(seconds=2),
                     status="completed"
                     )
                 ]
@@ -806,7 +919,7 @@ class ChatService:
                     agent_name="AI Assistant",
                     agent_role="Task Processing",
                     thought_process="Successfully processed your request and generated a response.",
-                    timestamp=datetime.now(UTC),
+                    timestamp=datetime.now(timezone.utc),
                     status="completed"
                 )
             ]
@@ -889,7 +1002,7 @@ class ChatService:
 
     def get_health_status(self) -> Dict[str, Any]:
         """Get health status of the chat service."""
-        uptime = (datetime.now(UTC) - self.startup_time).total_seconds()
+        uptime = (datetime.now(timezone.utc) - self.startup_time).total_seconds()
         
         return {
             "status": "healthy",
@@ -898,7 +1011,7 @@ class ChatService:
             "document_processing_status": "healthy",
             "active_conversations": len(self.active_conversations),
             "uptime_seconds": uptime,
-            "last_check": datetime.now(UTC)
+            "last_check": datetime.now(timezone.utc)
         }
 
 # Global service instance
