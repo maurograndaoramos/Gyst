@@ -30,8 +30,12 @@ export class DocumentMetadataService {
    */
   async storeDocumentMetadata(metadata: DocumentMetadata): Promise<string> {
     try {
+      // Process tags outside transaction
+      const tagMap = await this.processTagData(metadata.tags);
+
+      // Execute all operations in a single transaction
       return await db.transaction(async (tx) => {
-        // 1. Insert document record
+        // 1. Insert document record and get ID atomically
         const [document] = await tx
           .insert(documents)
           .values({
@@ -51,41 +55,7 @@ export class DocumentMetadataService {
           throw new DatabaseError("Failed to create document record");
         }
 
-        // 2. Process tags with deduplication
-        const tagMap = new Map<string, { id: string; confidence: number }>();
-
-        for (const tagData of metadata.tags) {
-          // Check if tag exists - use proper transaction syntax
-          const existingTags = await tx
-            .select()
-            .from(tags)
-            .where(eq(tags.name, tagData.name))
-            .limit(1);
-
-          let tagId: string;
-
-          if (existingTags.length > 0) {
-            tagId = existingTags[0].id;
-          } else {
-            // Create new tag
-            const newTags = await tx
-              .insert(tags)
-              .values({
-                name: tagData.name,
-              })
-              .returning({ id: tags.id });
-
-            if (!newTags || newTags.length === 0) {
-              throw new DatabaseError("Failed to create tag record");
-            }
-            tagId = newTags[0].id;
-          }
-
-          // Store tag with confidence score
-          tagMap.set(tagId, { id: tagId, confidence: tagData.confidence });
-        }
-
-        // 3. Batch insert document-tag relationships
+        // 2. Insert document-tag relationships if we have tags
         if (tagMap.size > 0) {
           const documentTagValues = Array.from(tagMap.values()).map(
             ({ id, confidence }) => ({
@@ -158,6 +128,46 @@ export class DocumentMetadataService {
   }
 
   /**
+   * Process tags and return a map of tag IDs to confidence scores
+   */
+  private async processTagData(tagDataList: TagData[]): Promise<Map<string, { id: string; confidence: number }>> {
+    const tagMap = new Map<string, { id: string; confidence: number }>();
+    
+    for (const tagData of tagDataList) {
+      // Check if tag exists
+      const existingTags = await db
+        .select()
+        .from(tags)
+        .where(eq(tags.name, tagData.name))
+        .limit(1);
+
+      let tagId: string;
+
+      if (existingTags.length > 0) {
+        tagId = existingTags[0].id;
+      } else {
+        // Create new tag
+        const newTags = await db
+          .insert(tags)
+          .values({
+            name: tagData.name,
+          })
+          .returning({ id: tags.id });
+
+        if (!newTags || newTags.length === 0) {
+          throw new DatabaseError("Failed to create tag record");
+        }
+        tagId = newTags[0].id;
+      }
+
+      // Store tag with confidence score
+      tagMap.set(tagId, { id: tagId, confidence: tagData.confidence });
+    }
+
+    return tagMap;
+  }
+
+  /**
    * Updates an existing document with analysis results (summary and tags).
    */
   async updateDocumentAnalysis(
@@ -168,11 +178,14 @@ export class DocumentMetadataService {
     }
   ): Promise<void> {
     try {
+      // Process tags outside the transaction
+      const tagMap = await this.processTagData(analysisData.tags);
+      
+      // All database operations in a single transaction
       await db.transaction(async (tx) => {
-        // 1. Update document with summary
+        // 1. Update document with summary if provided
         if (analysisData.summary) {
-          await tx
-            .update(documents)
+          await tx.update(documents)
             .set({
               summary: analysisData.summary,
               updatedAt: new Date(),
@@ -180,46 +193,11 @@ export class DocumentMetadataService {
             .where(eq(documents.id, documentId));
         }
 
-        // 2. Remove existing tags for this document
-        await tx
-          .delete(documentTags)
+        // 2. Remove existing tags
+        await tx.delete(documentTags)
           .where(eq(documentTags.documentId, documentId));
 
-        // 3. Process new tags with deduplication
-        const tagMap = new Map<string, { id: string; confidence: number }>();
-
-        for (const tagData of analysisData.tags) {
-          // Check if tag exists - use proper transaction syntax
-          const existingTags = await tx
-            .select()
-            .from(tags)
-            .where(eq(tags.name, tagData.name))
-            .limit(1);
-
-          let tagId: string;
-
-          if (existingTags.length > 0) {
-            tagId = existingTags[0].id;
-          } else {
-            // Create new tag
-            const newTags = await tx
-              .insert(tags)
-              .values({
-                name: tagData.name,
-              })
-              .returning({ id: tags.id });
-
-            if (!newTags || newTags.length === 0) {
-              throw new DatabaseError("Failed to create tag record");
-            }
-            tagId = newTags[0].id;
-          }
-
-          // Store tag with confidence score
-          tagMap.set(tagId, { id: tagId, confidence: tagData.confidence });
-        }
-
-        // 4. Batch insert new document-tag relationships
+        // 3. Insert new document-tag relationships
         if (tagMap.size > 0) {
           const documentTagValues = Array.from(tagMap.values()).map(
             ({ id, confidence }) => ({

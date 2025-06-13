@@ -23,6 +23,8 @@ from ..processing import get_document_tool_factory
 from ..selection import get_tag_based_selector
 from ..error_handling.circuit_breaker import get_circuit_breaker_manager, CircuitBreakerConfig
 from ..memory import get_conversation_memory_manager
+from ..document_reference_extractor import get_document_reference_extractor
+from ..document_resolver import get_document_resolver
 from .crewai_service import get_document_analysis_service
 from .crewai_execution_listener import create_execution_listener
 
@@ -57,6 +59,10 @@ class ChatService:
         self.tool_factory = get_document_tool_factory()
         self.tag_selector = get_tag_based_selector(max_documents=20)
         self.document_service = get_document_analysis_service()
+        
+        # Initialize document reference components
+        self.reference_extractor = get_document_reference_extractor()
+        self.document_resolver = get_document_resolver()
         
         # Initialize enhanced conversation memory manager
         self.memory_manager = get_conversation_memory_manager()
@@ -125,7 +131,14 @@ class ChatService:
             having natural conversations. You excel at understanding user intent, retrieving relevant 
             information from documents, and providing clear, helpful responses. You maintain conversation 
             context and can handle follow-up questions effectively. You work independently and make 
-            decisions autonomously without needing to consult other agents for simple questions.""",
+            decisions autonomously without needing to consult other agents for simple questions.
+            
+            IMPORTANT DOCUMENT HANDLING INSTRUCTION:
+            When a document is referenced with @[filename], you MUST ONLY use the actual content from the file.
+            NEVER invent, fabricate, or hallucinate information not present in the document.
+            If you cannot access a file or it's empty, explicitly state: "I cannot access the contents of [filename]."
+            Always quote specific sections from the document to support your analysis.
+            """,
             verbose=True,
             allow_delegation=False,
             tools=tools,
@@ -141,7 +154,16 @@ class ChatService:
             backstory="""You are an expert at understanding document content and determining 
             its relevance to user queries. You specialize in extracting key information, 
             identifying relevant excerpts, and scoring document relevance. You work closely 
-            with the AI Assistant to provide the best possible context for responses.""",
+            with the AI Assistant to provide the best possible context for responses.
+            
+            CRITICAL DOCUMENT HANDLING INSTRUCTIONS:
+            1. When analyzing documents, you MUST ONLY use the actual content from the referenced files.
+            2. NEVER invent, fabricate, or hallucinate information not present in the documents.
+            3. Always include direct quotes from the documents to support your findings.
+            4. If a document cannot be accessed or is empty, explicitly state this fact.
+            5. Your analysis must be based EXCLUSIVELY on the document's actual contents.
+            6. When quoting from documents, clearly indicate which document the quote comes from.
+            """,
             verbose=True,
             allow_delegation=False,
             tools=tools,
@@ -189,6 +211,8 @@ class ChatService:
             2. Extract relevant excerpts or key information
             3. Score the relevance of each document (0.0 to 1.0)
             4. Identify any specific sections or pages that are most pertinent
+            5. IMPORTANT: Include DIRECT QUOTES from the documents to support your analysis
+            6. NEVER invent or fabricate information not present in the documents
             
             Consider the conversation history:
             {history_context if history_context else 'No previous conversation'}
@@ -211,6 +235,8 @@ class ChatService:
             Guidelines:
             - Provide accurate, helpful information based on the available documents
             - Cite specific sources when referencing document content
+            - Include DIRECT QUOTES from documents when referencing their content
+            - NEVER invent or fabricate information not present in the documents
             - Maintain a natural, conversational tone
             - If documents don't contain relevant information, say so clearly
             - Suggest follow-up questions when appropriate
@@ -401,14 +427,47 @@ class ChatService:
         try:
             logger.info(f"Processing chat request for conversation {conversation_id}")
             
-            # Validate document paths
+            # Extract document references from message
+            extracted_filenames = self.reference_extractor.get_unique_filenames(request.message)
+            logger.info(f"Extracted document references: {list(extracted_filenames)}")
+            
+            # Get organization_id and user_id from request
+            organization_id = request.organization_id or 'default-org'
+            user_id = request.user_id or 'default-user'
+            
+            # Resolve document references to actual file paths
+            resolved_docs = await self.document_resolver.resolve_documents(
+                list(extracted_filenames), 
+                organization_id, 
+                user_id
+            )
+            
+            # Get validated paths from resolved documents and explicit request paths
             validated_paths = []
+            
+            # Add resolved document paths
+            for filename, doc in resolved_docs.items():
+                try:
+                    # Document paths from database are already absolute
+                    validated_paths.append(doc.file_path)
+                    logger.info(f"Added resolved document: {filename} -> {doc.file_path}")
+                except Exception as e:
+                    logger.warning(f"Error adding resolved document {filename}: {e}")
+            
+            # Add explicit document paths from request (for backward compatibility)
             for doc_path in request.document_paths:
                 try:
-                    self._validate_file_path(doc_path)
-                    validated_paths.append(doc_path)
+                    full_path = self._validate_file_path(doc_path)
+                    if full_path not in validated_paths:  # Avoid duplicates
+                        validated_paths.append(full_path)
                 except Exception as e:
                     logger.warning(f"Invalid document path {doc_path}: {e}")
+            
+            # Generate suggestions for unresolved documents
+            unresolved_filenames = extracted_filenames - set(resolved_docs.keys())
+            if unresolved_filenames:
+                logger.warning(f"Could not resolve documents: {list(unresolved_filenames)}")
+                # TODO: Add suggestions to response for better user experience
             
             # Create user message
             user_message = ChatMessage(
@@ -427,7 +486,6 @@ class ChatService:
             )
             
             # Get conversation history from enhanced memory
-            conversation_state = await self.memory_manager.get_conversation_state(conversation_id)
             conversation_history = self._get_enhanced_conversation_history(
                 conversation_id, 
                 memory_context
@@ -607,6 +665,8 @@ class ChatService:
             2. Extract relevant excerpts or key information
             3. Score the relevance of each document (0.0 to 1.0)
             4. Identify any specific sections or pages that are most pertinent
+            5. IMPORTANT: Include DIRECT QUOTES from the documents to support your analysis
+            6. NEVER invent or fabricate information not present in the documents
             
             Consider the conversation history:
             {history_context if history_context else 'No previous conversation'}
@@ -633,6 +693,8 @@ class ChatService:
             Guidelines:
             - Provide accurate, helpful information based on the available documents
             - Cite specific sources when referencing document content
+            - Include DIRECT QUOTES from documents when referencing their content
+            - NEVER invent or fabricate information not present in the documents
             - Maintain a natural, conversational tone
             - Consider the conversation topics and previous discussions
             - If documents don't contain relevant information, say so clearly

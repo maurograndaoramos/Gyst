@@ -64,8 +64,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     tempFilePath = `${tempDir}/${tempFileName}`
 
     // Write file to temp location
-    const bytes = await file.bytes()
-    const buffer = Buffer.from(bytes)
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
     await fs.writeFile(tempFilePath, buffer)
 
     // Create uploadedFile object for compatibility

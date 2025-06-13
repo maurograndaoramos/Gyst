@@ -32,6 +32,11 @@ export class DocumentAnalysisService {
    */
   async analyzeDocument(documentId: string): Promise<void> {
     try {
+      // Set initial analysis status
+      await db.update(documents)
+        .set({ analysisStatus: 'analyzing' })
+        .where(eq(documents.id, documentId));
+
       // 1. Get document metadata
       const metadata = await this.metadataService.getDocumentMetadata(
         documentId
@@ -45,8 +50,7 @@ export class DocumentAnalysisService {
         throw new Error("Document file path not found");
       }
 
-      // Backend expects path relative to the uploads directory (no uploads/ prefix needed)
-      // since backend now points directly to frontend/uploads directory
+      // Backend expects path relative to the uploads directory
       const relativePath = metadata.filePath;
 
       // 3. Call Python service for analysis
@@ -67,11 +71,9 @@ export class DocumentAnalysisService {
         );
 
         if (!response.ok) {
-          console.warn(
+          throw new Error(
             `Analysis service returned status ${response.status}: ${response.statusText}`
           );
-          // Don't throw error, just return without tags
-          return;
         }
 
         const result: AnalysisResult = await response.json();
@@ -81,15 +83,42 @@ export class DocumentAnalysisService {
           summary: result.summary,
           tags: result.tags,
         });
+
+        // Mark analysis as completed
+        await db.update(documents)
+          .set({
+            analysisStatus: 'completed',
+            analysisError: null,
+            updatedAt: new Date()
+          })
+          .where(eq(documents.id, documentId));
+
       } catch (analysisError) {
-        // Log the error but don't throw it
+        // Update status to failed and record error
+        await db.update(documents)
+          .set({
+            analysisStatus: 'failed',
+            analysisError: analysisError instanceof Error ? analysisError.message : String(analysisError),
+            updatedAt: new Date()
+          })
+          .where(eq(documents.id, documentId));
+
+        // Log the error but don't throw it to allow the upload to complete
         console.warn(
           "Document analysis failed, continuing without tags:",
           analysisError
         );
-        return;
       }
     } catch (error) {
+      // Update status to failed for any other errors
+      await db.update(documents)
+        .set({
+          analysisStatus: 'failed',
+          analysisError: error instanceof Error ? error.message : String(error),
+          updatedAt: new Date()
+        })
+        .where(eq(documents.id, documentId));
+
       console.error("Document metadata error:", error);
       throw error;
     }

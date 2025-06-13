@@ -41,32 +41,19 @@ class DocumentToolFactory:
 
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default unified configuration optimized for pattern recognition."""
+        # Enhanced config for RAG operations
         return {
-            "llm": {
-                "provider": "google",  # Use 'google' instead of 'gemini' for CrewAI tools
-                "config": {
-                    "model": "gemini-2.0-flash-exp",
-                    "temperature": 0.3,  # Lower for consistent pattern recognition
-                    "max_tokens": 4096,
-                    "top_p": 0.8,  # Focused responses
-                },
-            },
-            "embedder": {
-                "provider": "google",
-                "config": {
-                    "model": "models/embedding-001",
-                    "task_type": "retrieval_document",
-                    "title": "Problem Pattern Analysis",
-                },
-            },
+            "chunk_size": 1000,
+            "chunk_overlap": 200,
+            "verbose": True
         }
 
     def _initialize_registry(self) -> None:
         """Initialize the tool registry with supported document types."""
-        # Register TXTSearchTool for text and markdown files (TextRagTool equivalent)
+        # Register TXTSearchTool for text and markdown files - optimized for RAG operations
         self.register_tool_type(
             ToolConfiguration(
-                tool_class=TXTSearchTool,  # This serves as TextRagTool
+                tool_class=TXTSearchTool,  # Use TXTSearchTool for RAG operations
                 extensions=[".txt", ".md"],
                 fallback_tools=[FileReadTool],
                 priority=1,
@@ -75,24 +62,24 @@ class DocumentToolFactory:
             )
         )
 
-        # Register PDFSearchTool for PDF files (PdfRagTool)
+        # Register PDFSearchTool for PDF files first, then fallback to other tools
         self.register_tool_type(
             ToolConfiguration(
-                tool_class=PDFSearchTool,  # This serves as PdfRagTool
+                tool_class=PDFSearchTool,  # Use PDFSearchTool for RAG operations
                 extensions=[".pdf"],
-                fallback_tools=[TXTSearchTool, FileReadTool],
+                fallback_tools=[FileReadTool, TXTSearchTool],
                 priority=1,
                 concurrent_limit=3,  # Lower limit for PDF processing
                 config=self.unified_config,
             )
         )
 
-        # Register DOCXSearchTool for Word documents (DocxRagTool)
+        # Register DOCXSearchTool for Word documents
         self.register_tool_type(
             ToolConfiguration(
-                tool_class=DOCXSearchTool,  # This serves as DocxRagTool
+                tool_class=DOCXSearchTool,  # Use DOCXSearchTool for RAG operations
                 extensions=[".docx"],
-                fallback_tools=[TXTSearchTool, FileReadTool],
+                fallback_tools=[FileReadTool, TXTSearchTool],
                 priority=1,
                 concurrent_limit=3,  # Lower limit for DOCX processing
                 config=self.unified_config,
@@ -157,15 +144,23 @@ class DocumentToolFactory:
         final_config = config_override or tool_config.config
 
         try:
-            # Create tool instance with the resolved path
-            if final_config:
-                tool = tool_class(file_path=str(resolved_path), config=final_config)
-            else:
-                tool = tool_class(file_path=str(resolved_path))
+            # Ensure we always have a configuration for RAG tools
+            final_config = config_override or tool_config.config or self._get_default_config()
 
-            logger.info(
-                f"Created {tool_class.__name__} for file: {resolved_path} (original: {file_path})"
-            )
+            # Create tool instance with the resolved path, ensuring proper configuration for RAG tools
+            if issubclass(tool_class, (TXTSearchTool, PDFSearchTool, DOCXSearchTool)):
+                # Always pass config to RAG tools
+                tool = tool_class(file_path=str(resolved_path), config=final_config)
+                logger.info(
+                    f"Created RAG-enabled tool {tool_class.__name__} for {resolved_path} (original: {file_path}) with config: {final_config}"
+                )
+            else:
+                # For non-RAG tools like FileReadTool, config might not be needed
+                tool = tool_class(file_path=str(resolved_path))
+                logger.warning(
+                    f"Created non-RAG tool {tool_class.__name__} for {resolved_path} - document references may not work optimally"
+                )
+            
             return tool
 
         except Exception as e:
@@ -175,15 +170,21 @@ class DocumentToolFactory:
             # Try fallback tools
             for fallback_class in tool_config.fallback_tools:
                 try:
-                    if final_config and fallback_class != FileReadTool:
+                    # Use consistent configuration approach for fallback tools
+                    if issubclass(fallback_class, (TXTSearchTool, PDFSearchTool, DOCXSearchTool)):
+                        # Always pass config to RAG fallback tools
                         fallback_tool = fallback_class(
                             file_path=str(resolved_path), config=final_config
                         )
+                        logger.warning(
+                            f"Using RAG-enabled fallback tool {fallback_class.__name__} for {resolved_path} with config: {final_config}"
+                        )
                     else:
+                        # For non-RAG tools like FileReadTool
                         fallback_tool = fallback_class(file_path=str(resolved_path))
-                    logger.warning(
-                        f"Using fallback tool {fallback_class.__name__} for {resolved_path}"
-                    )
+                        logger.warning(
+                            f"Using non-RAG fallback tool {fallback_class.__name__} for {resolved_path} - document references may not work optimally"
+                        )
                     return fallback_tool
                 except Exception as fallback_error:
                     logger.error(

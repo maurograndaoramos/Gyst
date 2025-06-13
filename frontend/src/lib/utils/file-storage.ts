@@ -9,6 +9,20 @@ export class FileStorageService {
   constructor() {
     this.uploadDir = process.env.UPLOAD_DIR || 'uploads'
     this.tempDir = process.env.TEMP_DIR || 'uploads/temp'
+    // Ensure temp directory exists on instantiation
+    this.initTempDirectory().catch(error => {
+      console.error('Failed to initialize temp directory:', error)
+    })
+  }
+
+  private async initTempDirectory(): Promise<void> {
+    try {
+      await this.ensureDirectoryExists(this.tempDir)
+      // Ensure proper permissions
+      await fs.chmod(this.tempDir, 0o755)
+    } catch (error) {
+      throw new Error(`Failed to initialize temp directory: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   async ensureDirectoryExists(dirPath: string): Promise<void> {
@@ -51,9 +65,16 @@ export class FileStorageService {
 
   async cleanupTempFile(filePath: string): Promise<void> {
     try {
+      // Verify file exists before attempting to delete
+      await fs.access(filePath)
       await fs.unlink(filePath)
     } catch (error) {
-      console.warn(`Failed to cleanup temp file ${filePath}:`, error)
+      // Log but don't throw - cleanup failures shouldn't block the main operation
+      if ((error as { code?: string }).code === 'ENOENT') {
+        console.warn(`Temp file ${filePath} already deleted or does not exist`)
+      } else {
+        console.warn(`Failed to cleanup temp file ${filePath}:`, error)
+      }
     }
   }
 

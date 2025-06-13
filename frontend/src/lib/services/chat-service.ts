@@ -193,6 +193,8 @@ export class ChatService {
     const request: ChatRequest = {
       message,
       conversation_id: conversationId,
+      organization_id: options.organizationId,
+      user_id: options.userId,
       document_paths: documentPaths,
       max_documents: 5,
       include_sources: true,
@@ -219,6 +221,8 @@ export class ChatService {
     const request: ChatRequest = {
       message,
       conversation_id: conversationId,
+      organization_id: options.organizationId,
+      user_id: options.userId,
       document_paths: documentPaths,
       max_documents: 5,
       include_sources: true,
